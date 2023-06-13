@@ -48,7 +48,6 @@ public class Buoyancy : MonoBehaviour
 	void FixedUpdate(){
 		Vector3 fluidForce = -fluidDensity * Physics.gravity * volume;
 		rb.AddForce(fluidForce);
-		//Debug.Log (t);
 	}
 
 

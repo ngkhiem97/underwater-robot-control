@@ -13,7 +13,7 @@ public class ArmAgent : Agent
 {
     private ArticulationBody[] articulationChain;
     private bool firstEpisode = true;
-    private int stepCount = 0;
+    // private int stepCount = 0;
 
     public Unity.Robotics.UrdfImporter.Control.ControlType control = Unity.Robotics.UrdfImporter.Control.ControlType.PositionControl;
     public float stiffness;
@@ -44,7 +44,8 @@ public class ArmAgent : Agent
 
     public override void OnEpisodeBegin()
     {
-        stepCount = 0;
+        Debug.Log("OnEpisodeBegin");
+        // stepCount = 0;
         // SceneManager.LoadScene(SceneManager.GetActiveScene().name);
         if (!firstEpisode)
         {
@@ -58,49 +59,43 @@ public class ArmAgent : Agent
     // Update is called once per frame
     void Update()
     {
-        // Print Observations
-        // ReadOnlyCollection<float> observations = GetObservations();
-        // string obsStr = "";
-        // foreach (float obs in observations)
-        // {
-        //     obsStr += obs.ToString() + ", ";
-        // }
-        // Debug.Log("Observations: " + obsStr);
-
         float scaleFactor = 1f;
-        float distanceToTarget = Vector3.Distance(targetTransform.localPosition, articulationChain[9].transform.localPosition);
+        float distanceToTarget = Vector3.Distance(targetTransform.position, articulationChain[9].transform.position);
         float scaledReward = distanceToTarget / scaleFactor;
         SetReward(-scaledReward);
 
         // Print Reward
-        if (stepCount % 10 == 0)
-        {
-            Debug.Log("Reward: " + GetCumulativeReward());
-        }
-        stepCount++;
+        // if (stepCount % 100 == 0)
+        // {
+        //     Debug.Log("Target Position: " + targetTransform.position);
+        //     Debug.Log("Servo Head Position: " + articulationChain[9].transform.position);
+        //     Debug.Log("Distance to Target: " + distanceToTarget);
+        //     Debug.Log("Reward: " + GetCumulativeReward());
+        // }
+        // stepCount++;
     }
 
     public override void CollectObservations(VectorSensor sensor)
     {
-        sensor.AddObservation(targetTransform.localPosition);
-        sensor.AddObservation(articulationChain[1].transform.localPosition); // shoulder
-        sensor.AddObservation(articulationChain[2].transform.localPosition); // arm
-        sensor.AddObservation(articulationChain[3].transform.localPosition); // elbow
-        sensor.AddObservation(articulationChain[4].transform.localPosition); // forearm
-        sensor.AddObservation(articulationChain[5].transform.localPosition); // wrist
-        sensor.AddObservation(articulationChain[6].transform.localPosition); // hand
-        sensor.AddObservation(articulationChain[9].transform.localPosition); // servo head
+        sensor.AddObservation(targetTransform.position);
+        sensor.AddObservation(articulationChain[1].transform.position); // shoulder
+        sensor.AddObservation(articulationChain[2].transform.position); // arm
+        sensor.AddObservation(articulationChain[3].transform.position); // elbow
+        sensor.AddObservation(articulationChain[4].transform.position); // forearm
+        sensor.AddObservation(articulationChain[5].transform.position); // wrist
+        sensor.AddObservation(articulationChain[6].transform.position); // hand
+        sensor.AddObservation(articulationChain[9].transform.position); // servo head
     }
 
     public override void OnActionReceived(ActionBuffers actions)
     {
-        Debug.Log("OnActionReceived");
-        Debug.Log("actions.DiscreteActions[0]: " + actions.DiscreteActions[0]); // shoulder
-        Debug.Log("actions.DiscreteActions[1]: " + actions.DiscreteActions[1]); // arm
-        Debug.Log("actions.DiscreteActions[2]: " + actions.DiscreteActions[2]); // elbow
-        Debug.Log("actions.DiscreteActions[3]: " + actions.DiscreteActions[3]); // forearm
-        Debug.Log("actions.DiscreteActions[4]: " + actions.DiscreteActions[4]); // wrist
-        Debug.Log("actions.DiscreteActions[5]: " + actions.DiscreteActions[5]); // hand
+        // Debug.Log("OnActionReceived");
+        // Debug.Log("actions.DiscreteActions[0]: " + actions.DiscreteActions[0]); // shoulder
+        // Debug.Log("actions.DiscreteActions[1]: " + actions.DiscreteActions[1]); // arm
+        // Debug.Log("actions.DiscreteActions[2]: " + actions.DiscreteActions[2]); // elbow
+        // Debug.Log("actions.DiscreteActions[3]: " + actions.DiscreteActions[3]); // forearm
+        // Debug.Log("actions.DiscreteActions[4]: " + actions.DiscreteActions[4]); // wrist
+        // Debug.Log("actions.DiscreteActions[5]: " + actions.DiscreteActions[5]); // hand
         UpdateDirections(actions);
     }
 
@@ -158,9 +153,9 @@ public class ArmAgent : Agent
         // base.Heuristic(actionsOut);
     }
 
-    private void OnTriggerEnter(Collider other)
+    public void OnCollisionEnter(Collision collision)
     {
-        Debug.Log("OnTriggerEnter!!!!");
+        Debug.Log("OnCollisionEnter Robot Side!!!!");
         SetReward(1.0f);
         EndEpisode();
     }

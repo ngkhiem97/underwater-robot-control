@@ -2,22 +2,40 @@
     "Arm": {
         "checkpoints": [
             {
-                "steps": 628,
-                "file_path": "results/arm0/Arm/Arm-628.onnx",
-                "reward": -1.1221793591976166,
-                "creation_time": 1685447499.436561,
+                "steps": 24665,
+                "file_path": "results/arm0/Arm/Arm-24665.onnx",
+                "reward": 0.28420491218566896,
+                "creation_time": 1686057230.1576867,
                 "auxillary_file_paths": [
-                    "results/arm0/Arm/Arm-628.pt"
+                    "results/arm0/Arm/Arm-24665.pt"
+                ]
+            },
+            {
+                "steps": 24786,
+                "file_path": "results/arm0/Arm/Arm-24786.onnx",
+                "reward": null,
+                "creation_time": 1686059279.2925935,
+                "auxillary_file_paths": [
+                    "results/arm0/Arm/Arm-24786.pt"
+                ]
+            },
+            {
+                "steps": 24979,
+                "file_path": "results/arm0/Arm/Arm-24979.onnx",
+                "reward": -57.150980631510414,
+                "creation_time": 1686059518.6313322,
+                "auxillary_file_paths": [
+                    "results/arm0/Arm/Arm-24979.pt"
                 ]
             }
         ],
         "final_checkpoint": {
-            "steps": 628,
+            "steps": 24979,
             "file_path": "results/arm0/Arm.onnx",
-            "reward": -1.1221793591976166,
-            "creation_time": 1685447499.436561,
+            "reward": -57.150980631510414,
+            "creation_time": 1686059518.6313322,
             "auxillary_file_paths": [
-                "results/arm0/Arm/Arm-628.pt"
+                "results/arm0/Arm/Arm-24979.pt"
             ]
         }
     },
