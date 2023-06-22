@@ -69,15 +69,7 @@ public class ArmGrabAgent : Agent
         {
             articulationChain = this.GetComponentsInChildren<ArticulationBody>();
         }
-        sensor.AddObservation(articulationChain[1].transform.position - targetTransform.position);
-        sensor.AddObservation(articulationChain[2].transform.position - targetTransform.position);
-        sensor.AddObservation(articulationChain[3].transform.position - targetTransform.position);
-        sensor.AddObservation(articulationChain[4].transform.position - targetTransform.position);
-        sensor.AddObservation(articulationChain[5].transform.position - targetTransform.position);
-        sensor.AddObservation(articulationChain[6].transform.position - targetTransform.position);
-        sensor.AddObservation(articulationChain[8].transform.position - targetTransform.position);
-        sensor.AddObservation(articulationChain[11].transform.position - targetTransform.position);
-        sensor.AddObservation(articulationChain[13].transform.position - targetTransform.position);
+        sensor.AddObservation(articulationChain[9].transform.position - targetTransform.position);
         sensor.AddObservation(targetTransform.gameObject.GetComponent<Rigidbody>().velocity);
 
         sensor.AddObservation(articulationChain[1].xDrive.target); // shoulder
@@ -97,25 +89,25 @@ public class ArmGrabAgent : Agent
         sensor.AddObservation(articulationChain[6].velocity); // hand
         sensor.AddObservation(articulationChain[8].velocity); // base
 
-        sensor.AddObservation(articulationChain[1].angularVelocity); // shoulder
-        sensor.AddObservation(articulationChain[2].angularVelocity); // arm
-        sensor.AddObservation(articulationChain[3].angularVelocity); // elbow
-        sensor.AddObservation(articulationChain[4].angularVelocity); // forearm
-        sensor.AddObservation(articulationChain[5].angularVelocity); // wrist
-        sensor.AddObservation(articulationChain[6].angularVelocity); // hand
-        sensor.AddObservation(articulationChain[8].angularVelocity); // base
+        // sensor.AddObservation(articulationChain[1].angularVelocity); // shoulder
+        // sensor.AddObservation(articulationChain[2].angularVelocity); // arm
+        // sensor.AddObservation(articulationChain[3].angularVelocity); // elbow
+        // sensor.AddObservation(articulationChain[4].angularVelocity); // forearm
+        // sensor.AddObservation(articulationChain[5].angularVelocity); // wrist
+        // sensor.AddObservation(articulationChain[6].angularVelocity); // hand
+        // sensor.AddObservation(articulationChain[8].angularVelocity); // base
 
-        sensor.AddObservation(articulationChain[0].transform.position - articulationChain[1].transform.position); // shoulder
-        sensor.AddObservation(articulationChain[0].transform.position - articulationChain[2].transform.position); // arm
-        sensor.AddObservation(articulationChain[0].transform.position - articulationChain[3].transform.position); // elbow
-        sensor.AddObservation(articulationChain[0].transform.position - articulationChain[4].transform.position); // forearm
-        sensor.AddObservation(articulationChain[0].transform.position - articulationChain[5].transform.position); // wrist
-        sensor.AddObservation(articulationChain[0].transform.position - articulationChain[6].transform.position); // hand
-        sensor.AddObservation(articulationChain[0].transform.position - articulationChain[8].transform.position); // base
-        sensor.AddObservation(articulationChain[0].transform.position - articulationChain[11].transform.position); // right gripper
-        sensor.AddObservation(articulationChain[0].transform.position - articulationChain[13].transform.position); // left gripper
-        sensor.AddObservation(articulationChain[8].transform.position - articulationChain[11].transform.position); // right gripper
-        sensor.AddObservation(articulationChain[8].transform.position - articulationChain[13].transform.position); // left gripper
+        // sensor.AddObservation(articulationChain[0].transform.position - articulationChain[1].transform.position); // shoulder
+        // sensor.AddObservation(articulationChain[0].transform.position - articulationChain[2].transform.position); // arm
+        // sensor.AddObservation(articulationChain[0].transform.position - articulationChain[3].transform.position); // elbow
+        // sensor.AddObservation(articulationChain[0].transform.position - articulationChain[4].transform.position); // forearm
+        // sensor.AddObservation(articulationChain[0].transform.position - articulationChain[5].transform.position); // wrist
+        // sensor.AddObservation(articulationChain[0].transform.position - articulationChain[6].transform.position); // hand
+        // sensor.AddObservation(articulationChain[0].transform.position - articulationChain[8].transform.position); // base
+        // sensor.AddObservation(articulationChain[0].transform.position - articulationChain[11].transform.position); // right gripper
+        // sensor.AddObservation(articulationChain[0].transform.position - articulationChain[13].transform.position); // left gripper
+        // sensor.AddObservation(articulationChain[8].transform.position - articulationChain[11].transform.position); // right gripper
+        // sensor.AddObservation(articulationChain[8].transform.position - articulationChain[13].transform.position); // left gripper
 
         sensor.AddObservation(gripperState); // gripper
 
