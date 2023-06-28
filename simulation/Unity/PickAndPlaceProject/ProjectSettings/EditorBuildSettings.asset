@@ -8,7 +8,10 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Tests/PlayMode/PlayModeTestScenes/TargetPlacementTest.unity
     guid: 3d328f38f71b71e47bb8d96869012ffe
-  - enabled: 1
+  - enabled: 0
     path: Assets/Tests/PlayMode/PlayModeTestScenes/TargetPlacementTest.unity
     guid: 3d328f38f71b71e47bb8d96869012ffe
+  - enabled: 1
+    path: Assets/Scenes/UnderwaterArm.unity
+    guid: 95446ce3ccdd49fa8abc28d57c41fdaa
   m_configObjects: {}
