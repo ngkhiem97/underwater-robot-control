@@ -1,9 +1,29 @@
 from env.underwater_env import UnderwaterEnv
+from arguments import get_args
 
 if __name__ == "__main__":
-    env = UnderwaterEnv("env/Underwater.exe", num_areas=2)
+    args = get_args()
+
+    print("Create the environment...")
+    env = UnderwaterEnv(file_name=None)
     env.reset()
-    for _ in range(10):
-        action = env.env.get_steps()[0].action
-        env.step(action)
-    env.env.close()
+
+    print("Get the behavior specs...")
+    behavior_name = list(env.env.behavior_specs)[0]
+    print(f"Name of the behavior : {behavior_name}")
+
+    spec = env.env.behavior_specs[behavior_name]
+    print("Number of observations : ", len(spec.observation_specs))
+    print("Number of actions : ", spec.action_spec.discrete_size)
+
+    if spec.action_spec.is_continuous():
+        print("The action is continuous")
+
+    if spec.action_spec.is_discrete():
+        print("The action is discrete")
+
+    for _ in range(80):
+        print("step...")
+        # action = env.env.get_steps(behavior_name)[0].action
+        env.step()
+    env.close()
