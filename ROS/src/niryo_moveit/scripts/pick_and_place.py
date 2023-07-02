@@ -18,10 +18,7 @@ from geometry_msgs.msg import Quaternion, Pose
 from std_msgs.msg import String
 from moveit_commander.conversions import pose_to_list
 
-from niryo_moveit.srv import PointToPointService, PointToPointServiceRequest, PointToPointServiceResponse
-
-group_name = "arm"
-move_group = moveit_commander.MoveGroupCommander(group_name)
+from niryo_moveit.srv import MoverService, MoverServiceRequest, MoverServiceResponse
 
 joint_names = ['joint_1', 'joint_2', 'joint_3', 'joint_4', 'joint_5', 'joint_6']
 
@@ -59,24 +56,66 @@ def plan_trajectory(move_group, destination_pose, start_joint_angles):
 
 
 """
-    Creates a point-to-point with finish_pose as the destination pose.
+    Creates a pick and place plan using the four states below.
+    
+    1. Pre Grasp - position gripper directly above target object
+    2. Grasp - lower gripper so that fingers are on either side of object
+    3. Pick Up - raise gripper back to the pre grasp position
+    4. Place - move gripper to desired placement position
+
+    Gripper behaviour is handled outside of this trajectory planning.
+        - Gripper close occurs after 'grasp' position has been achieved
+        - Gripper open occurs after 'place' position has been achieved
 
     https://github.com/ros-planning/moveit/blob/master/moveit_commander/src/moveit_commander/move_group.py
 """
-def plan_point_to_point(req):
-    response = PointToPointServiceResponse()
+def plan_pick_and_place(req):
+    response = MoverServiceResponse()
+
+    group_name = "arm"
+    move_group = moveit_commander.MoveGroupCommander(group_name)
 
     current_robot_joint_configuration = req.joints_input.joints
 
     # Pre grasp - position gripper directly above target object
-    plan = plan_trajectory(move_group, req.finish_pose, current_robot_joint_configuration)
-
+    pre_grasp_pose = plan_trajectory(move_group, req.pick_pose, current_robot_joint_configuration)
+    
     # If the trajectory has no points, planning has failed and we return an empty response
-    if not plan.joint_trajectory.points:
+    if not pre_grasp_pose.joint_trajectory.points:
+        return response
+
+    previous_ending_joint_angles = pre_grasp_pose.joint_trajectory.points[-1].positions
+
+    # Grasp - lower gripper so that fingers are on either side of object
+    pick_pose = copy.deepcopy(req.pick_pose)
+    pick_pose.position.z -= 0.05  # Static value coming from Unity, TODO: pass along with request
+    grasp_pose = plan_trajectory(move_group, pick_pose, previous_ending_joint_angles)
+    
+    if not grasp_pose.joint_trajectory.points:
+        return response
+
+    previous_ending_joint_angles = grasp_pose.joint_trajectory.points[-1].positions
+
+    # Pick Up - raise gripper back to the pre grasp position
+    pick_up_pose = plan_trajectory(move_group, req.pick_pose, previous_ending_joint_angles)
+    
+    if not pick_up_pose.joint_trajectory.points:
+        return response
+
+    previous_ending_joint_angles = pick_up_pose.joint_trajectory.points[-1].positions
+
+    # Place - move gripper to desired placement position
+    place_pose = plan_trajectory(move_group, req.place_pose, previous_ending_joint_angles)
+
+    if not place_pose.joint_trajectory.points:
         return response
 
     # If trajectory planning worked for all pick and place stages, add plan to response
-    response.trajectory = plan
+    response.trajectories.append(pre_grasp_pose)
+    response.trajectories.append(grasp_pose)
+    response.trajectories.append(pick_up_pose)
+    response.trajectories.append(place_pose)
+
     move_group.clear_pose_targets()
 
     return response
@@ -86,7 +125,7 @@ def moveit_server():
     moveit_commander.roscpp_initialize(sys.argv)
     rospy.init_node('niryo_moveit_server')
 
-    s = rospy.Service('niryo_moveit', PointToPointService, plan_point_to_point)
+    s = rospy.Service('niryo_moveit', MoverService, plan_pick_and_place)
     print("Ready to plan")
     rospy.spin()
 

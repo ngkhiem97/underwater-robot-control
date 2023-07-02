@@ -6,6 +6,6 @@
 		<param name="tcp_ip" type="string" value="$(arg tcp_ip)"/>
         <param name="tcp_port" type="int" value="$(arg tcp_port)"/>
 	</node>
-    <node name="mover" pkg="niryo_moveit" type="pick_and_place.py" args="--wait" output="screen"/>
+    <node name="mover" pkg="niryo_moveit" type="mover.py" args="--wait" output="screen"/>
     <include file="$(find niryo_moveit)/launch/demo.launch" />
 </launch>
