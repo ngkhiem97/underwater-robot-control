@@ -85,9 +85,8 @@ class ddpg_agent:
                     # reset the environment
                     observation = self.env.reset()
                     obs = observation['observation']
-                    ag = observation['achieved_goal']
-                    goals = observation['desired_goals'] # multi goals implementation
-                    g = goals[0]
+                    ags = observation['achieved_goals']
+                    g = observation['desired_goal']
             
                     # start to collect samples
                     for t in range(self.env_params['max_timesteps']):
@@ -99,19 +98,23 @@ class ddpg_agent:
                         # feed the actions into the environment
                         observation_new, _, _, _ = self.env.step(action)
                         obs_new = observation_new['observation']
-                        ag_new = observation_new['achieved_goal']
+                        ags_new = observation_new['achieved_goals']
                 
-                        # append rollouts
-                        ep_obs.append(obs.copy())
-                        ep_ag.append(ag.copy())
-                        ep_g.append(g.copy())
-                        ep_actions.append(action.copy())
+                        # append rollouts, multi goals implementation
+                        for ag in ags:
+                            ep_obs.append(obs.copy())
+                            ep_ag.append(ag.copy())
+                            ep_g.append(g.copy())
+                            ep_actions.append(action.copy())
                 
                         # re-assign the observation
                         obs = obs_new
-                        ag = ag_new
-                    ep_obs.append(obs.copy())
-                    ep_ag.append(ag.copy())
+                        ags = ags_new
+
+                    # multi goals implementation
+                    for ag in ags:
+                        ep_obs.append(obs.copy())
+                        ep_ag.append(ag.copy())
                     mb_obs.append(ep_obs)
                     mb_ag.append(ep_ag)
                     mb_g.append(ep_g)
@@ -287,8 +290,7 @@ class ddpg_agent:
             per_success_rate = []
             observation = self.env.reset()
             obs = observation['observation']
-            goals = observation['desired_goals']
-            g = goals[0]
+            g = observation['desired_goal']
             for _ in range(self.env_params['max_timesteps']):
                 with torch.no_grad():
                     input_tensor = self._preproc_inputs(obs, g)
@@ -298,8 +300,7 @@ class ddpg_agent:
                     actions = pi.detach().cpu().numpy().squeeze()
                 observation_new, _, _, info = self.env.step(actions)
                 obs = observation_new['observation']
-                goals = observation['desired_goals']
-                g = goals[0]
+                g = observation_new['desired_goal']
                 per_success_rate.append(info['is_success'])
             total_success_rate.append(per_success_rate)
         total_success_rate = np.array(total_success_rate)

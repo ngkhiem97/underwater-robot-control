@@ -74,13 +74,13 @@ class UnderwaterEnv:
     def get_obs(self):
         decision_steps, terminal_steps = self.env.get_steps(self.behavior_name)
         obs = decision_steps.obs[0]
-        achieved_goal = obs[0][0:10]
-        desired_goals = self._process_desired_goal(obs[0][11:17])
+        achieved_goals = self._process_achieved_goals(obs[0][0:10])
+        desired_goal = obs[0][11:17]
         reward = decision_steps.reward[0]
         return {
             'observation': obs,
-            'achieved_goal': achieved_goal,
-            'desired_goals': desired_goals, # multi goals implementation
+            'achieved_goals': achieved_goals, # multi goals implementation
+            'desired_goal': desired_goal,
             'reward': reward
         }
     
@@ -110,15 +110,15 @@ class UnderwaterEnv:
                 action_tuple.add_discrete(1)
         return action
 
-    def _process_desired_goal(self, desired_goal):
-        pos = desired_goal[0:3]
-        rot = R.from_euler('xyz', desired_goal[3:6], degrees=False)
+    def _process_achieved_goals(self, achieved_goal):
+        pos = achieved_goal[0:3]
+        rot = R.from_euler('xyz', achieved_goal[3:6], degrees=False)
         # generate the desired goals by rotating the rot (in radian) around z-axis
-        desired_goals = []
+        achieved_goals = []
         for i in range(0, 2*np.pi, np.pi/2):
             r = R.from_euler('z', i, degrees=False)
             r = r * rot
-            desired_goals.append(np.concatenate((pos, r.as_euler('xyz', degrees=False), 1.0)))
+            achieved_goals.append(np.concatenate((pos, r.as_euler('xyz', degrees=False), 1.0)))
 
         # generate the desired goals by rotating the rot (in radian) around x-axis 90 degrees and z-axis 4 times
         r_x_90 = R.from_euler('x', np.pi/2, degrees=False)
@@ -126,25 +126,25 @@ class UnderwaterEnv:
         for i in range(0, 2*np.pi, np.pi/2):
             r = R.from_euler('z', i, degrees=False)
             r = r * rot_x_90
-            desired_goals.append(np.concatenate((pos, r.as_euler('xyz', degrees=False), 1.0)))
+            achieved_goals.append(np.concatenate((pos, r.as_euler('xyz', degrees=False), 1.0)))
 
         # generate the desired goals by rotating the rot_x_90 (in radian) around y-axis 90 degrees
         r_y_90 = R.from_euler('y', np.pi/2, degrees=False)
         rot_y_90 = r_y_90 * rot_x_90
-        desired_goals.append(np.concatenate((pos, rot_y_90.as_euler('xyz', degrees=False), 1.0)))
+        achieved_goals.append(np.concatenate((pos, rot_y_90.as_euler('xyz', degrees=False), 1.0)))
 
         # generate the desired goals by rotating the rot_x_90 (in radian) around y-axis -90 degrees
         r_y_neg_90 = R.from_euler('y', -np.pi/2, degrees=False)
         rot_y_neg_90 = r_y_neg_90 * rot_x_90
-        desired_goals.append(np.concatenate((pos, rot_y_neg_90.as_euler('xyz', degrees=False), 1.0)))
+        achieved_goals.append(np.concatenate((pos, rot_y_neg_90.as_euler('xyz', degrees=False), 1.0)))
 
         # generate the desired goals by rotating the rot (in radian) around y-axis 90 degrees
         rot_y_90 = r_y_90 * rot
-        desired_goals.append(np.concatenate((pos, rot_y_90.as_euler('xyz', degrees=False), 1.0)))
+        achieved_goals.append(np.concatenate((pos, rot_y_90.as_euler('xyz', degrees=False), 1.0)))
 
         # generate the desired goals by rotating the rot (in radian) around y-axis -90 degrees
         rot_y_neg_90 = r_y_neg_90 * rot
-        desired_goals.append(np.concatenate((pos, rot_y_neg_90.as_euler('xyz', degrees=False), 1.0)))
+        achieved_goals.append(np.concatenate((pos, rot_y_neg_90.as_euler('xyz', degrees=False), 1.0)))
 
-        return desired_goals
+        return achieved_goals
 
