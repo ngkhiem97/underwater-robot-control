@@ -296,7 +296,10 @@ class ddpg_agent:
             
                     # convert the actions
                     actions = pi.detach().cpu().numpy().squeeze()
-                _, _, _, info = self.env.step(actions)
+                observation_new, _, _, info = self.env.step(actions)
+                obs = observation_new['observation']
+                goals = observation['desired_goals']
+                g = goals[0]
                 per_success_rate.append(info['is_success'])
             total_success_rate.append(per_success_rate)
         total_success_rate = np.array(total_success_rate)
