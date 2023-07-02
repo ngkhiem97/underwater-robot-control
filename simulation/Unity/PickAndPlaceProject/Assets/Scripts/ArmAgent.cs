@@ -27,6 +27,7 @@ public class ArmAgent : Agent
     private List<GameObject> contacts = new List<GameObject>();
     private GameObject gripperBase;
     private int gripperState = 1;
+    private int gripperStateCmd = 1;
 
     private ROSConnection m_Ros;
     private const string m_RosServiceName = "niryo_moveit";
@@ -83,6 +84,7 @@ public class ArmAgent : Agent
     {
         sensor.AddObservation(GetGripperPosition());
         sensor.AddObservation(GetGripperOrientation());
+        sensor.AddObservation(GetCurrentGripperState());
         sensor.AddObservation(GetTargetPosition());
         sensor.AddObservation(GetTargetOrientation());
         sensor.AddObservation(GetDeltaPosition());
@@ -99,7 +101,7 @@ public class ArmAgent : Agent
         Vector3 gripperOrientation = new Vector3(vectorAction.ContinuousActions[3], 
                                                  vectorAction.ContinuousActions[4], 
                                                  vectorAction.ContinuousActions[5]); // in radians
-        bool gripperOpen = vectorAction.DiscreteActions[0] == 1;
+        int gripperOpen = vectorAction.DiscreteActions[0];
         ControlGripper(gripperPosition, gripperOrientation, gripperOpen);
     }
 
@@ -126,21 +128,14 @@ public class ArmAgent : Agent
         // Debug.Log("Gripper orientation: " + GetGripperOrientation());
     }
 
-    private void ControlGripper(Vector3 position, Vector3 orientation_rad, bool open)
+    private void ControlGripper(Vector3 position, Vector3 orientation_rad, int open)
     {
         if (gripperControlInAction)
         {
             return;
         }
         PublishJoints(position, orientation_rad);
-        if (open)
-        {
-            OpenGripper();
-        }
-        else
-        {
-            CloseGripper();
-        }
+        gripperStateCmd = open;
     }
 
     private void ConfigJoints()
@@ -209,6 +204,11 @@ public class ArmAgent : Agent
     private Vector3 GetTargetOrientation()
     {
         return Utils.ConvertRotation(target.transform.rotation.eulerAngles);
+    }
+
+    private float GetCurrentGripperState()
+    {
+        return gripperState;
     }
 
     private Vector3 GetDeltaPosition()
@@ -322,6 +322,15 @@ public class ArmAgent : Agent
                 yield return new WaitForSeconds(k_JointAssignmentWait);
             }
         }
+        if (gripperStateCmd == 0)
+        {
+            OpenGripper();
+        }
+        else
+        {
+            CloseGripper();
+        }
+        gripperState = gripperStateCmd;
         gripperControlInAction = false;
     }
 

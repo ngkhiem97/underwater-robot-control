@@ -37,6 +37,8 @@ def get_args():
     parser.add_argument('--arm-speed', type=int, default=8, help='the arm speed')
     parser.add_argument('--reward-type', type=str, default='dense', help='the reward type')
     parser.add_argument('--nsubsteps', type=int, default=50, help='the number of substeps')
+    parser.add_argument('--file-name', type=str, default=None, help='the path to the environment')
+    parser.add_argument('--max-reward', type=float, default=1, help='the max reward')
 
     args = parser.parse_args()
 

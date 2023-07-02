@@ -30,6 +30,20 @@ public class PosGenerator : MonoBehaviour
             return;
         }
         tf.position = combinedPos;
+
+        // rotate the end effector to face the shoulder link
+        Vector3 direction = tf.position - shoulderLink.position;
+        Quaternion toRotation = Quaternion.FromToRotation(tf.up, direction);
+        tf.rotation = toRotation * tf.rotation;
+
+        // rotate around x -90 degrees
+        tf.Rotate(new Vector3(-90, 0, 0), Space.Self);
+
+        // print orientation
+        Debug.Log(tf.rotation.eulerAngles);
+
+        // print orientation in radians
+        Debug.Log(Utils.ConvertRotation(tf.rotation.eulerAngles));
     }
 
     public void OnCollisionEnter(Collision collision)

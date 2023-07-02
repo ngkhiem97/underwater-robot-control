@@ -12,8 +12,9 @@ behavior_name = list(unity_env.behavior_specs)[0]
 print(f"Name of the behavior : {behavior_name}")
 
 spec = unity_env.behavior_specs[behavior_name]
-print("Number of observations : ", len(spec.observation_specs))
-print("Number of actions : ", spec.action_spec.discrete_size)
+print("Number of observations : ", spec.observation_specs[0].shape[0])
+print("Number of discrete actions : ", spec.action_spec.discrete_size)
+print("Number of continuous actions : ", spec.action_spec.continuous_size)
 
 if spec.action_spec.is_continuous():
   print("The action is continuous")

@@ -1,29 +1,35 @@
 from env.underwater_env import UnderwaterEnv
+from rl_modules.ddpg_agent import ddpg_agent
 from arguments import get_args
+import os
+
+MAX_TIMESTEPS = 100 # hard coded for now
 
 if __name__ == "__main__":
+    # take the configuration for the HER
+    os.environ['OMP_NUM_THREADS'] = '1'
+    os.environ['MKL_NUM_THREADS'] = '1'
+    os.environ['IN_MPI'] = '1'
+
     args = get_args()
-
-    print("Create the environment...")
-    env = UnderwaterEnv(file_name=None)
-    env.reset()
-
-    print("Get the behavior specs...")
-    behavior_name = list(env.env.behavior_specs)[0]
-    print(f"Name of the behavior : {behavior_name}")
-
-    spec = env.env.behavior_specs[behavior_name]
-    print("Number of observations : ", len(spec.observation_specs))
-    print("Number of actions : ", spec.action_spec.discrete_size)
-
-    if spec.action_spec.is_continuous():
-        print("The action is continuous")
-
-    if spec.action_spec.is_discrete():
-        print("The action is discrete")
-
-    for _ in range(80):
-        print("step...")
-        # action = env.env.get_steps(behavior_name)[0].action
-        env.step()
-    env.close()
+    env = UnderwaterEnv(file_name=args.file_name, 
+                        worker_id=0, 
+                        base_port=5005, 
+                        seed=1, 
+                        no_graphics=True, 
+                        timeout_wait=60, 
+                        side_channels=[],
+                        log_folder='logs/', 
+                        max_steps=MAX_TIMESTEPS, 
+                        behavior_name=None,
+                        reward_type=args.reward_type)
+    obs = env.reset()
+    env_params = {
+        'obs': obs['observation'].shape[0],
+        'goal': obs['desired_goals'][0].shape[0],
+        'action': env.action_space.continuous_size + env.action_space.discrete_size,
+        'action_max': env.action_max, # hard coded for now
+        'max_timesteps': env.max_steps, # hard coded for now
+    }
+    ddpg_ag = ddpg_agent(args, env, env_params)
+    ddpg_ag.learn()
