@@ -45,7 +45,6 @@ class UnderwaterEnv:
         self.reward_type = reward_type
         self.max_reward = max_reward
         self.nsubsteps = nsubsteps
-        print(f"Environment started - Name of the behavior : {behavior_name}")
 
     def reset(self):
         self.env.reset()
@@ -104,8 +103,6 @@ class UnderwaterEnv:
         action = np.clip(action, -self.action_max, self.action_max)
         action[3] *= np.pi
         action[4] *= np.pi/2
-        # action[0:3] = [0, 0.9, 0.305] # test values
-        # action[3:6] = [0, 0, 0]       # test values
         action[5] = 1.0 if action[5] > 0.0 else 0.0
         action_tuple = ActionTuple(
             continuous=np.reshape(action[0:self.action_space.continuous_size], (1, self.action_space.continuous_size)),

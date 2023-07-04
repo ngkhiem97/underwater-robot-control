@@ -64,7 +64,7 @@ class ddpg_agent:
                 os.mkdir(self.args.save_dir)
     
             # path to save the model
-            self.model_path = os.path.join(self.args.save_dir, "gen3_slide")
+            self.model_path = os.path.join(self.args.save_dir, env.__class__.__name__)
             if not os.path.exists(self.model_path):
                 os.mkdir(self.model_path)
 
@@ -76,7 +76,7 @@ class ddpg_agent:
 
         # start to collect samples
         for epoch in range(self.args.n_epochs):
-            for cycle in range(self.args.n_cycles):
+            for cycle in range(self.args.n_episodes):
                 mb_obs, mb_ag, mb_g, mb_actions = [], [], [], []
                 for _ in range(self.args.num_rollouts_per_mpi):
             
@@ -149,7 +149,10 @@ class ddpg_agent:
                 print('[{}] epoch is: {}, eval success rate is: {:.3f}'.format(datetime.now(), epoch, success_rate))
                 date = datetime.now().strftime("%Y-%m-%d")
                 torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std, self.actor_network.state_dict()], \
-                            self.model_path + f'/model-{date}.pt')
+                            self.model_path + f'/model_{date}.pt')
+                with open(self.model_path + f'/args_{date}.txt', 'w') as f:
+                    for arg in vars(self.args):
+                        f.write(f'{arg}: {getattr(self.args, arg)}\n')
 
     # pre_process the inputs
     def _preproc_inputs(self, obs, g):

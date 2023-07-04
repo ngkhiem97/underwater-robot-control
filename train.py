@@ -15,7 +15,7 @@ if __name__ == "__main__":
     env = UnderwaterEnv(file_name=args.file_name, 
                         worker_id=0, 
                         base_port=None, 
-                        seed=1, 
+                        seed=args.seed, 
                         no_graphics=True, 
                         timeout_wait=60, 
                         side_channels=[],
