@@ -10,6 +10,7 @@ def get_args():
     # the environment setting
     parser.add_argument('--n-epochs', type=int, default=200, help='the number of epochs to train the agent')
     parser.add_argument('--n-episodes', type=int, default=80, help='the number of episodes to collect samples')
+    parser.add_argument('--n-batches', type=int, default=40, help='the times to update the network')
     parser.add_argument('--seed', type=int, default=1, help='random seed')
     parser.add_argument('--num-workers', type=int, default=1, help='the number of cpus to collect samples')
     parser.add_argument('--replay-strategy', type=str, default='future', help='the HER strategy')

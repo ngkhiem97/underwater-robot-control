@@ -147,7 +147,7 @@ class ddpg_agent:
             success_rate = self._eval_agent()
             if MPI.COMM_WORLD.Get_rank() == 0:
                 print('[{}] epoch is: {}, eval success rate is: {:.3f}'.format(datetime.now(), epoch, success_rate))
-                date = datetime.now().strftime("%Y-%m-%d")
+                date = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
                 torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std, self.actor_network.state_dict()], \
                             self.model_path + f'/model_{date}.pt')
                 with open(self.model_path + f'/args_{date}.txt', 'w') as f:
