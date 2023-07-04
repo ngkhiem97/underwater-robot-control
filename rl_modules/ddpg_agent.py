@@ -9,6 +9,7 @@ from rl_modules.models import actor, critic
 from mpi_utils.normalizer import normalizer
 from her_modules.her import her_sampler
 from env.underwater_env import UnderwaterEnv
+import time
 
 """
 ddpg with HER (MPI-version)
@@ -51,7 +52,7 @@ class ddpg_agent:
         self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward)
 
         # create the replay buffer
-        self.buffer = replay_buffer(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions)
+        self.buffer = replay_buffer(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions, 12) # 12 is the hard coded multiplier
 
         # create the normalizer
         self.o_norm = normalizer(size=env_params['obs'], default_clip_range=self.args.clip_range)
@@ -75,7 +76,7 @@ class ddpg_agent:
 
         # start to collect samples
         for epoch in range(self.args.n_epochs):
-            for _ in range(self.args.n_cycles):
+            for cycle in range(self.args.n_cycles):
                 mb_obs, mb_ag, mb_g, mb_actions = [], [], [], []
                 for _ in range(self.args.num_rollouts_per_mpi):
             
@@ -111,6 +112,8 @@ class ddpg_agent:
                         obs = obs_new
                         ags = ags_new
 
+                        print(f"epoch: {epoch}, cycle: {cycle}, t: {t}", "ep_obs: ", len(ep_obs), "ep_ag: ", len(ep_ag), "ep_g: ", len(ep_g), "ep_actions: ", len(ep_actions), end='\r')
+
                     # multi goals implementation
                     for ag in ags:
                         ep_obs.append(obs.copy())
@@ -121,10 +124,12 @@ class ddpg_agent:
                     mb_actions.append(ep_actions)
         
                 # convert them into arrays
+                print("mb_obs: ", len(mb_obs), "mb_ag: ", len(mb_ag), "mb_g: ", len(mb_g), "mb_actions: ", len(mb_actions))
                 mb_obs = np.array(mb_obs)
                 mb_ag = np.array(mb_ag)
                 mb_g = np.array(mb_g)
                 mb_actions = np.array(mb_actions)
+                print("mb_obs: ", mb_obs.shape, "mb_ag: ", mb_ag.shape, "mb_g: ", mb_g.shape, "mb_actions: ", mb_actions.shape)
         
                 # store the episodes
                 self.buffer.store_episode([mb_obs, mb_ag, mb_g, mb_actions])

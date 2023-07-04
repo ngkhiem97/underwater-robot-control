@@ -181,30 +181,14 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8575929}
-  - component: {fileID: 8575928}
+  - component: {fileID: 8575930}
   m_Layer: 0
   m_Name: Publisher
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &8575928
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8575927}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 804f7500ebd23742298cb95af8111ae9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_RosServiceName: niryo_moveit
-  m_NiryoOne: {fileID: 697873349}
-  m_Target: {fileID: 416274873}
-  m_TargetPlacement: {fileID: 577158707}
+  m_IsActive: 0
 --- !u!4 &8575929
 Transform:
   m_ObjectHideFlags: 0
@@ -218,8 +202,24 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 9
+  m_RootOrder: 8
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8575930
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8575927}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 57189464e124f37b5b2736a087391a6f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_RosServiceName: niryo_moveit
+  m_NiryoOne: {fileID: 697873349}
+  m_Target: {fileID: 416274873}
+  m_TargetPlacement: {fileID: 577158707}
 --- !u!1 &32774852
 GameObject:
   m_ObjectHideFlags: 8
@@ -1619,37 +1619,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 8251010399855479510, guid: f5b69848e1ce5499a812c846f2bc7e86, type: 3}
   m_PrefabInstance: {fileID: 1310839861}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &360775955
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 360775957}
-  m_Layer: 0
-  m_Name: Publisher
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &360775957
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 360775955}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_RootOrder: 6
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &396555387 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 5761827147291219034, guid: 5eecd5da92eb64eb6876d43ca0009083, type: 3}
@@ -2335,10 +2304,10 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 11500000, guid: 804f7500ebd23742298cb95af8111ae9, type: 3}
-        m_TargetAssemblyTypeName: UnityEngine.Object, UnityEngine
-        m_MethodName: 
-        m_Mode: 5
+      - m_Target: {fileID: 8575930}
+        m_TargetAssemblyTypeName: TrajectoryPlanner, Assembly-CSharp
+        m_MethodName: PublishJoints
+        m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
@@ -3230,7 +3199,7 @@ RectTransform:
   m_Children:
   - {fileID: 547115878}
   m_Father: {fileID: 0}
-  m_RootOrder: 7
+  m_RootOrder: 6
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
@@ -5370,6 +5339,8 @@ MonoBehaviour:
   damping: 1000
   forceLimit: 10000
   target: {fileID: 416274889}
+  testPosition: {x: 0, y: 0.9, z: 0.305}
+  testOrientation: {x: 0, y: 0, z: 0}
 --- !u!114 &697873354
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5383,10 +5354,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BrainParameters:
-    VectorObservationSize: 24
-    NumStackedVectorObservations: 1
+    VectorObservationSize: 26
+    NumStackedVectorObservations: 4
     m_ActionSpec:
-      m_NumContinuousActions: 3
+      m_NumContinuousActions: 5
       BranchSizes: 02000000
     VectorActionSize: 
     VectorActionDescriptions: []
@@ -6265,7 +6236,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 8
+  m_RootOrder: 7
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &855407140
 PrefabInstance:
@@ -6328,7 +6299,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 850690186460591414, guid: 43bef545df3e344c4a7e089ca90c15a0, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 43bef545df3e344c4a7e089ca90c15a0, type: 3}
@@ -9199,15 +9170,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5113255398182140587, guid: 3901759e6233748538fffdbc519c1a68, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -0.114
+      value: 0.377
       objectReference: {fileID: 0}
     - target: {fileID: 5113255398182140587, guid: 3901759e6233748538fffdbc519c1a68, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.7089
+      value: 1.1199
       objectReference: {fileID: 0}
     - target: {fileID: 5113255398182140587, guid: 3901759e6233748538fffdbc519c1a68, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0.557
+      value: 0.246
       objectReference: {fileID: 0}
     - target: {fileID: 5113255398182140587, guid: 3901759e6233748538fffdbc519c1a68, type: 3}
       propertyPath: m_LocalRotation.w
