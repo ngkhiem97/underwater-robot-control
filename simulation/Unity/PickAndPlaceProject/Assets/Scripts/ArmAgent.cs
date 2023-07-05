@@ -9,15 +9,16 @@ using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Sensors;
 using System.Linq;
+using UnityEngine.SceneManagement;
 
 public class ArmAgent : Agent
 {
     // Start is called before the first frame update
     public float jointFriction = 10f;
     public float angularDamping = 10f;
-    public float stiffness = 100000f;
-    public float damping = 1000f;
-    public float forceLimit = 10000f;
+    public float stiffness = 10000f;
+    public float damping = 100f;
+    public float forceLimit = 1000f;
     public Rigidbody target;
     public Vector3 testPosition;
     public Vector3 testOrientation;
@@ -31,7 +32,7 @@ public class ArmAgent : Agent
 
     private ROSConnection Ros;
     private const string RosServiceName = "niryo_moveit";
-    private const float JointAssignmentWait = 0.025f;
+    private const float JointAssignmentWait = 0.01f;
     private const float armReach = 0.54f;
     private ArticulationBody LeftGripper;
     private ArticulationBody RightGripper;
@@ -42,11 +43,19 @@ public class ArmAgent : Agent
     private ArticulationBody[] controlLinks = new ArticulationBody[k_NumRobotJoints];
     private float[] LastContinuousAction = null;
     private int LastDiscreteAction = -1;
+    private int numContactEntered = 0;
+    private bool started = false;
     void Start()
     {
         // configuring the joints
         articulationChain = GetComponentsInChildren<ArticulationBody>();
-        ConfigJoints();
+        // ConfigJoints();
+        int jointTargetIndex = 0;
+        foreach (ArticulationBody joint in articulationChain)
+        {
+            // saving initial joint targets
+            initialJointTargets[jointTargetIndex] = joint.xDrive.target;
+        }
 
         // getting the gripper's contacts
         string[] contactsNames = {"contact_left_1", "contact_left_2", "contact_right_1", "contact_right_2"};
@@ -66,7 +75,6 @@ public class ArmAgent : Agent
         string linkName = string.Empty;
         for (var i = 0; i < k_NumRobotJoints; i++)
         {
-            Debug.Log("Link name: " + linkName);
             linkName += controlLinkNames[i];
             controlLinks[i] = this.transform.Find(linkName).GetComponent<ArticulationBody>();
         }
@@ -76,11 +84,19 @@ public class ArmAgent : Agent
         var leftGripper = linkName + "/tool_link/gripper_base/servo_head/control_rod_left/left_gripper";
         RightGripper = this.transform.Find(rightGripper).GetComponent<ArticulationBody>();
         LeftGripper = this.transform.Find(leftGripper).GetComponent<ArticulationBody>();
+
+        // Set initial target position
+        target.GetComponent<PosGenerator>().GenerateRandomPos();
+        started = true;
     }
 
     public override void OnEpisodeBegin()
     {
-        target.GetComponent<PosGenerator>().GenerateRandomPos();
+        if (!started)
+        {
+            return;
+        }
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
     public override void CollectObservations(VectorSensor sensor)
@@ -99,10 +115,50 @@ public class ArmAgent : Agent
 
     public override void OnActionReceived(ActionBuffers vectorAction)
     {
+        Debug.Log("Action received as " + vectorAction.ContinuousActions[0] + ", " + vectorAction.ContinuousActions[1] + ", " + vectorAction.ContinuousActions[2] + ", " + vectorAction.ContinuousActions[3] + ", " + vectorAction.ContinuousActions[4] + ", " + vectorAction.DiscreteActions[0]);
         if (CheckLastAction(vectorAction))
         {
             return;
         }
+        ProcessAction(vectorAction);
+        Vector3 gripperPosition = ProcessGripperPosition(vectorAction);
+        Vector3 gripperOrientation = ProcessGripperOrientation(vectorAction, gripperPosition);
+        int gripperOpen = vectorAction.DiscreteActions[0];
+        ControlGripper(gripperPosition, gripperOrientation, gripperOpen);
+    }
+
+    public override void Heuristic(in ActionBuffers actionsOut)
+    {
+        // only set if current position is far from test position
+        if (Vector3.Distance(GetGripperPosition(), testPosition) > 0.02f)
+        {
+            actionsOut.ContinuousActions.Array[0] = testPosition.x;
+            actionsOut.ContinuousActions.Array[1] = testPosition.y;
+            actionsOut.ContinuousActions.Array[2] = testPosition.z;
+            actionsOut.ContinuousActions.Array[3] = testOrientation.x * Mathf.Deg2Rad;
+            actionsOut.ContinuousActions.Array[4] = testOrientation.z * Mathf.Deg2Rad;
+            actionsOut.DiscreteActions.Array[0] = 0;
+        }
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        // Check for "Invalid worldAABB. Object is too large or too far away from the origin" error
+        foreach (ArticulationBody joint in articulationChain) 
+        {
+            if (float.IsNaN(joint.transform.position.x) ||
+                float.IsNaN(joint.transform.position.y) ||
+                float.IsNaN(joint.transform.position.z))
+            {
+                Ros.Disconnect();
+                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            }
+        }
+    }
+
+    private void ProcessAction(ActionBuffers vectorAction)
+    {
         if (LastContinuousAction == null)
         {
             LastContinuousAction = new float[5];
@@ -113,47 +169,28 @@ public class ArmAgent : Agent
         LastContinuousAction[3] = vectorAction.ContinuousActions[3];
         LastContinuousAction[4] = vectorAction.ContinuousActions[4];
         LastDiscreteAction = vectorAction.DiscreteActions[0];
+    }
+
+    private Vector3 ProcessGripperPosition(ActionBuffers vectorAction)
+    {
         float x_new = Utils.ConvertRange(vectorAction.ContinuousActions[0], -1, 1, -1, 1);
         float y_new = Utils.ConvertRange(vectorAction.ContinuousActions[1], -1, 1, 0, 1);
         float z_new = Utils.ConvertRange(vectorAction.ContinuousActions[2], -1, 1, 0, 1);
         Vector3 gripperPosition = Utils.ScaleToLength(new Vector3(x_new, y_new, z_new), 1);
         gripperPosition = Utils.ScaleToScale(gripperPosition, 1, armReach * 0.75f);
-        gripperPosition = Utils.ShiftVector(gripperPosition, controlLinks[1].transform.position.x, 
-                                                             controlLinks[1].transform.position.y, 
+        gripperPosition = Utils.ShiftVector(gripperPosition, controlLinks[1].transform.position.x,
+                                                             controlLinks[1].transform.position.y,
                                                              controlLinks[1].transform.position.z);
-        Vector3 gripperOrientation = new Vector3(vectorAction.ContinuousActions[3],
-                                                 Utils.GetYRotationFromXZ(gripperPosition.x,
-                                                                          gripperPosition.z),
-                                                 vectorAction.ContinuousActions[4]);
-        int gripperOpen = vectorAction.DiscreteActions[0];
-        ControlGripper(gripperPosition, gripperOrientation, gripperOpen);
-    }
-    public override void Heuristic(in ActionBuffers actionsOut)
-    {
-        // only set if current position is far from test position
-        if (Vector3.Distance(GetGripperPosition(), testPosition) > 0.02f)
-        {
-            actionsOut.ContinuousActions.Array[0] = testPosition.x;
-            actionsOut.ContinuousActions.Array[1] = testPosition.y;
-            actionsOut.ContinuousActions.Array[2] = testPosition.z;
-            actionsOut.ContinuousActions.Array[3] = testOrientation.x * Mathf.Deg2Rad;
-            // actionsOut.ContinuousActions.Array[4] = testOrientation.y * Mathf.Deg2Rad;
-            actionsOut.ContinuousActions.Array[4] = testOrientation.z * Mathf.Deg2Rad;
-            actionsOut.DiscreteActions.Array[0] = 0;
-        }
+        return gripperPosition;
     }
 
-    // Update is called once per frame
-    void Update()
+    private static Vector3 ProcessGripperOrientation(ActionBuffers vectorAction, Vector3 gripperPosition)
     {
-        // Print gripper position and orientation
-        // Debug.Log("Gripper position: " + GetGripperPosition());
-        // Debug.Log("Gripper orientation: " + GetGripperOrientation());
-        // Debug.Log("arm_link position: " + controlLinks[1].transform.position);
-        // print out the step count
-        // Debug.Log("Step count: " + StepCount);
-        // print gripper orientation
-        // Debug.Log("Gripper orientation: " + GetGripperOrientation());
+        float x_orientation = Utils.ConvertRange(vectorAction.ContinuousActions[3], -1, 1, -Mathf.PI*3/4, Mathf.PI*3/4);
+        float z_orientation = Utils.ConvertRange(vectorAction.ContinuousActions[4], -1, 1, -Mathf.PI*1/2, Mathf.PI*1/2);
+        return new Vector3(x_orientation,
+                           Utils.GetYRotationFromXZ(gripperPosition.x, gripperPosition.z),
+                           z_orientation);
     }
 
     private bool CheckLastAction(ActionBuffers vectorAction)
@@ -162,11 +199,11 @@ public class ArmAgent : Agent
         {
             return false;
         }
-        if (LastContinuousAction[0] == vectorAction.ContinuousActions[0] &&
-            LastContinuousAction[1] == vectorAction.ContinuousActions[1] &&
-            LastContinuousAction[2] == vectorAction.ContinuousActions[2] &&
-            LastContinuousAction[3] == vectorAction.ContinuousActions[3] &&
-            LastContinuousAction[4] == vectorAction.ContinuousActions[4] &&
+        if (Mathf.Abs(LastContinuousAction[0] - vectorAction.ContinuousActions[0]) < 0.005f &&
+            Mathf.Abs(LastContinuousAction[1] - vectorAction.ContinuousActions[1]) < 0.005f &&
+            Mathf.Abs(LastContinuousAction[2] - vectorAction.ContinuousActions[2]) < 0.005f &&
+            Mathf.Abs(LastContinuousAction[3] - vectorAction.ContinuousActions[3]) < 0.0025f &&
+            Mathf.Abs(LastContinuousAction[4] - vectorAction.ContinuousActions[4]) < 0.0025f &&
             LastDiscreteAction == vectorAction.DiscreteActions[0])
         {
             return true;
@@ -180,14 +217,12 @@ public class ArmAgent : Agent
         {
             return;
         }
-        Debug.Log("Control gripper with position: " + position + " and orientation: " + orientation_rad);
         PublishJoints(position, orientation_rad);
         gripperStateCmd = open;
     }
 
     private void ConfigJoints()
     {
-        int jointTargetIndex = 0;
         foreach (ArticulationBody joint in articulationChain)
         {
 
@@ -207,10 +242,6 @@ public class ArmAgent : Agent
             drive.damping = damping;
             drive.forceLimit = forceLimit;
             joint.xDrive = drive;
-
-            // saving initial joint targets
-            initialJointTargets[jointTargetIndex] = joint.xDrive.target;
-            jointTargetIndex++;
         }
     }
 
@@ -313,20 +344,15 @@ public class ArmAgent : Agent
         {
             joints.joints[i] = controlLinks[i].xDrive.target * Mathf.Deg2Rad;
         }
-
         return joints;
     }
 
     private void PublishJoints(Vector3 destination, Vector3 orientation_rad)
     {
-        Debug.Log("Publishing joints.");
         gripperControlInAction = true;
         var request = new PointToPointServiceRequest();
         request.joints_input = CurrentJointConfig();
-
         Vector3 offset = new Vector3(0, 0, 0);
-
-        // Finish Pose
         request.finish_pose = new PoseMsg
         {
             position = (destination + offset).To<FLU>(),
@@ -334,27 +360,22 @@ public class ArmAgent : Agent
                                            orientation_rad.y * Mathf.Rad2Deg, 
                                            orientation_rad.z * Mathf.Rad2Deg).To<FLU>()
         };
-
-        // Freeze current step
-
         Ros.SendServiceMessage<PointToPointServiceResponse>(RosServiceName, request, TrajectoryResponse);
     }
 
-    void TrajectoryResponse(PointToPointServiceResponse response)
+    private void TrajectoryResponse(PointToPointServiceResponse response)
     {
         if (response.trajectory != null)
         {
-            Debug.Log("Trajectory returned.");
             StartCoroutine(ExecuteTrajectories(response));
         }
         else
         {
             gripperControlInAction = false;
-            Debug.LogError("No trajectory returned from PointToPointService.");
         }
     }
 
-    IEnumerator ExecuteTrajectories(PointToPointServiceResponse response)
+    private IEnumerator ExecuteTrajectories(PointToPointServiceResponse response)
     {
         if (response.trajectory != null)
         {
@@ -388,7 +409,7 @@ public class ArmAgent : Agent
         gripperControlInAction = false;
     }
 
-    void CloseGripper()
+    private void CloseGripper()
     {
         var leftDrive = LeftGripper.xDrive;
         var rightDrive = RightGripper.xDrive;
@@ -400,7 +421,7 @@ public class ArmAgent : Agent
         RightGripper.xDrive = rightDrive;
     }
 
-    void OpenGripper()
+    private void OpenGripper()
     {
         var leftDrive = LeftGripper.xDrive;
         var rightDrive = RightGripper.xDrive;
@@ -410,5 +431,15 @@ public class ArmAgent : Agent
 
         LeftGripper.xDrive = leftDrive;
         RightGripper.xDrive = rightDrive;
+    }
+
+    internal void ContactEntered(Collider other)
+    {
+        numContactEntered++;
+        if (numContactEntered == 4)
+        {
+            SetReward(1f);
+            EndEpisode();
+        }
     }
 }

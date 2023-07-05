@@ -11,6 +11,8 @@ from her_modules.her import her_sampler
 from env.underwater_env import UnderwaterEnv
 import time
 
+EPSILON = 1e-4
+
 """
 ddpg with HER (MPI-version)
 
@@ -91,15 +93,17 @@ class ddpg_agent:
             
                     # start to collect samples
                     for t in range(self.env_params['max_timesteps']):
-                        with torch.no_grad():
-                            input_tensor = self._preproc_inputs(obs, g)
-                            pi = self.actor_network(input_tensor)
-                            action = self._select_actions(pi)
-                
-                        # feed the actions into the environment
-                        observation_new, _, _, _ = self.env.step(action)
-                        obs_new = observation_new['observation']
-                        ags_new = observation_new['achieved_goals']
+                        obs_new = obs
+                        while (np.linalg.norm(obs_new[0:3] - obs[0:3]) < EPSILON):
+                            with torch.no_grad():
+                                input_tensor = self._preproc_inputs(obs, g)
+                                pi = self.actor_network(input_tensor)
+                                action = self._select_actions(pi)
+                    
+                            # feed the actions into the environment
+                            observation_new, reward, _, _ = self.env.step(action)
+                            obs_new = observation_new['observation']
+                            ags_new = observation_new['achieved_goals']
                 
                         # append rollouts, multi goals implementation
                         for ag in ags:
@@ -112,7 +116,7 @@ class ddpg_agent:
                         obs = obs_new
                         ags = ags_new
 
-                        print(f"epoch: {epoch}, cycle: {cycle}, t: {t}", "ep_obs: ", len(ep_obs), "ep_ag: ", len(ep_ag), "ep_g: ", len(ep_g), "ep_actions: ", len(ep_actions), end='\r')
+                        print(f"epoch: {epoch}, cycle: {cycle}, t: {t}", "ep_obs: ", len(ep_obs), "ep_ag: ", len(ep_ag), "ep_g: ", len(ep_g), "ep_actions: ", len(ep_actions), "reward: ", reward, end='\r')
 
                     # multi goals implementation
                     for ag in ags:
@@ -124,12 +128,10 @@ class ddpg_agent:
                     mb_actions.append(ep_actions)
         
                 # convert them into arrays
-                print("mb_obs: ", len(mb_obs), "mb_ag: ", len(mb_ag), "mb_g: ", len(mb_g), "mb_actions: ", len(mb_actions))
                 mb_obs = np.array(mb_obs)
                 mb_ag = np.array(mb_ag)
                 mb_g = np.array(mb_g)
                 mb_actions = np.array(mb_actions)
-                print("mb_obs: ", mb_obs.shape, "mb_ag: ", mb_ag.shape, "mb_g: ", mb_g.shape, "mb_actions: ", mb_actions.shape)
         
                 # store the episodes
                 self.buffer.store_episode([mb_obs, mb_ag, mb_g, mb_actions])

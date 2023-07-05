@@ -8,10 +8,12 @@ public class PosGenerator : MonoBehaviour
     public Transform shoulderLink;
     public float maxDistance;
     private Transform tf;
+    private Rigidbody rb;
     private int count = 0;
     void Start()
     {
         tf = GetComponent<Transform>();
+        rb = GetComponent<Rigidbody>();
     }
 
     public void GenerateRandomPos()
@@ -39,19 +41,19 @@ public class PosGenerator : MonoBehaviour
         // rotate around x -90 degrees
         tf.Rotate(new Vector3(-90, 0, 0), Space.Self);
 
-        // print orientation
-        Debug.Log(tf.rotation.eulerAngles);
+        // set velocity to 0
+        rb.velocity = Vector3.zero;
 
-        // print orientation in radians
-        Debug.Log(Utils.ConvertRotation(tf.rotation.eulerAngles));
+        // Set angular velocity to 0
+        rb.angularVelocity = Vector3.zero;
     }
 
-    public void OnCollisionEnter(Collision collision)
-    {
-        Debug.Log("Collision");
-        Debug.Log(collision.gameObject.name);
-        Debug.Log(tf.position);
-    }
+    // public void OnCollisionEnter(Collision collision)
+    // {
+    //     Debug.Log("Collision");
+    //     Debug.Log(collision.gameObject.name);
+    //     Debug.Log(tf.position);
+    // }
 
     // Update is called once per frame
     // void Update()
