@@ -1819,6 +1819,19 @@ Rigidbody:
   m_CorrespondingSourceObject: {fileID: 4064412142990923027, guid: 3901759e6233748538fffdbc519c1a68, type: 3}
   m_PrefabInstance: {fileID: 1505515350}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &416274890
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 416274873}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c602c13e5f3a2250bb5d6d889d95f769, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  agent: {fileID: 697873349}
 --- !u!1001 &460324909
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -5355,7 +5368,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_BrainParameters:
     VectorObservationSize: 26
-    NumStackedVectorObservations: 4
+    NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 5
       BranchSizes: 02000000
@@ -6299,7 +6312,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 850690186460591414, guid: 43bef545df3e344c4a7e089ca90c15a0, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 43bef545df3e344c4a7e089ca90c15a0, type: 3}

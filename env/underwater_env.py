@@ -32,8 +32,7 @@ class UnderwaterEnv:
                                     seed=seed,
                                     no_graphics=no_graphics,
                                     timeout_wait=timeout_wait,
-                                    side_channels=side_channels,
-                                    log_folder=log_folder)
+                                    side_channels=side_channels)
         self.env.reset()
         if behavior_name is None:
             behavior_name = list(self.env.behavior_specs)[0]
@@ -67,7 +66,7 @@ class UnderwaterEnv:
             'desired_goal': get_obs['desired_goal']
         }
         reward = get_obs['reward']
-        if reward < -self.max_reward/REWARD_SCALE:
+        if reward < -self.max_reward/REWARD_SCALE and self.reward_type == "dense":
             self.env.reset()
         is_done = self._is_terminal()
         info = {

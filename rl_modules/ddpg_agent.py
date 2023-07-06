@@ -10,6 +10,7 @@ from mpi_utils.normalizer import normalizer
 from her_modules.her import her_sampler
 from env.underwater_env import UnderwaterEnv
 import time
+from torch.utils.tensorboard import SummaryWriter
 
 EPSILON = 1e-4
 
@@ -22,6 +23,9 @@ class ddpg_agent:
         self.args = args
         self.env = env
         self.env_params = env_params
+
+        # Tensorboard
+        self.writer = SummaryWriter()
 
         # create the network
         self.actor_network = actor(env_params)
@@ -78,8 +82,11 @@ class ddpg_agent:
 
         # start to collect samples
         for epoch in range(self.args.n_epochs):
+            culmulative_reward = 0
+            actor_loss, critic_loss = 0, 0
             for cycle in range(self.args.n_episodes):
                 mb_obs, mb_ag, mb_g, mb_actions = [], [], [], []
+
                 for _ in range(self.args.num_rollouts_per_mpi):
             
                     # reset the rollouts
@@ -116,6 +123,8 @@ class ddpg_agent:
                         obs = obs_new
                         ags = ags_new
 
+                        # update the reward
+                        culmulative_reward += reward
                         print(f"epoch: {epoch}, cycle: {cycle}, t: {t}", "ep_obs: ", len(ep_obs), "ep_ag: ", len(ep_ag), "ep_g: ", len(ep_g), "ep_actions: ", len(ep_actions), "reward: ", reward, end='\r')
 
                     # multi goals implementation
@@ -136,10 +145,18 @@ class ddpg_agent:
                 # store the episodes
                 self.buffer.store_episode([mb_obs, mb_ag, mb_g, mb_actions])
                 self._update_normalizer([mb_obs, mb_ag, mb_g, mb_actions])
+
+                total_actor_loss, total_critic_loss = 0, 0
                 for _ in range(self.args.n_batches):
             
                     # train the network
-                    self._update_network()
+                    actor_loss, critic_loss = self._update_network()
+                    total_actor_loss += actor_loss
+                    total_critic_loss += critic_loss
+
+                # calculate the statistics
+                actor_loss += total_actor_loss / self.args.n_batches
+                critic_loss += total_critic_loss / self.args.n_batches
         
                 # soft update
                 self._soft_update_target_network(self.actor_target_network, self.actor_network)
@@ -147,6 +164,13 @@ class ddpg_agent:
     
             # start to do the evaluation
             success_rate = self._eval_agent()
+
+            # Tensorboard
+            self.writer.add_scalar('actor_loss', actor_loss, epoch)
+            self.writer.add_scalar('critic_loss', critic_loss, epoch)
+            self.writer.add_scalar('culmulative_reward', culmulative_reward, epoch)
+            self.writer.add_scalar('success_rate', success_rate, epoch)
+
             if MPI.COMM_WORLD.Get_rank() == 0:
                 print('[{}] epoch is: {}, eval success rate is: {:.3f}'.format(datetime.now(), epoch, success_rate))
                 date = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
@@ -155,6 +179,9 @@ class ddpg_agent:
                 with open(self.model_path + f'/args_{date}.txt', 'w') as f:
                     for arg in vars(self.args):
                         f.write(f'{arg}: {getattr(self.args, arg)}\n')
+
+        self.writer.flush()
+        self.writer.close()
 
     # pre_process the inputs
     def _preproc_inputs(self, obs, g):
@@ -292,6 +319,7 @@ class ddpg_agent:
         self.critic_optim.step()
 
         print('actor_loss: ', actor_loss.item(), 'critic_loss: ', critic_loss.item(), end='\r')
+        return actor_loss.item(), critic_loss.item()
 
     # do the evaluation
     def _eval_agent(self):

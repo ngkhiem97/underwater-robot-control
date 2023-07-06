@@ -86,13 +86,14 @@ public class ArmAgent : Agent
         LeftGripper = this.transform.Find(leftGripper).GetComponent<ArticulationBody>();
 
         // Set initial target position
-        target.GetComponent<PosGenerator>().GenerateRandomPos();
         started = true;
     }
 
     public override void OnEpisodeBegin()
     {
-        if (!started)
+        Debug.Log("Episode begin");
+        target.GetComponent<PosGenerator>().GenerateRandomPos();
+        if (started)
         {
             return;
         }
@@ -115,7 +116,7 @@ public class ArmAgent : Agent
 
     public override void OnActionReceived(ActionBuffers vectorAction)
     {
-        Debug.Log("Action received as " + vectorAction.ContinuousActions[0] + ", " + vectorAction.ContinuousActions[1] + ", " + vectorAction.ContinuousActions[2] + ", " + vectorAction.ContinuousActions[3] + ", " + vectorAction.ContinuousActions[4] + ", " + vectorAction.DiscreteActions[0]);
+        // Debug.Log("Action received as " + vectorAction.ContinuousActions[0] + ", " + vectorAction.ContinuousActions[1] + ", " + vectorAction.ContinuousActions[2] + ", " + vectorAction.ContinuousActions[3] + ", " + vectorAction.ContinuousActions[4] + ", " + vectorAction.DiscreteActions[0]);
         if (CheckLastAction(vectorAction))
         {
             return;
