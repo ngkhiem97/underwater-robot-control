@@ -27,9 +27,25 @@ class ddpg_agent:
         # Tensorboard
         self.writer = SummaryWriter()
 
+        # create the normalizer
+        self.o_norm = normalizer(size=env_params['obs'], default_clip_range=self.args.clip_range)
+        self.g_norm = normalizer(size=env_params['goal'], default_clip_range=self.args.clip_range)
+
         # create the network
         self.actor_network = actor(env_params)
         self.critic_network = critic(env_params)
+
+        # allow the training to continue from the last checkpoint if wanted
+        self.start_epoch = 0
+        if args.continue_training:
+            o_mean, o_std, g_mean, g_std, actor_model, critic_model = torch.load(args.load_dir, map_location=lambda storage, loc: storage)
+            self.o_norm.mean = o_mean
+            self.o_norm.std = o_std
+            self.g_norm.mean = g_mean
+            self.g_norm.std = g_std
+            self.actor_network.load_state_dict(actor_model)
+            self.critic_network.load_state_dict(critic_model)
+            self.start_epoch = args.continue_epoch
 
         # sync the networks across the cpus
         sync_networks(self.actor_network)
@@ -60,10 +76,6 @@ class ddpg_agent:
         # create the replay buffer
         self.buffer = replay_buffer(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions, 12) # 12 is the hard coded multiplier
 
-        # create the normalizer
-        self.o_norm = normalizer(size=env_params['obs'], default_clip_range=self.args.clip_range)
-        self.g_norm = normalizer(size=env_params['goal'], default_clip_range=self.args.clip_range)
-
         # create the dict for store the model
         if MPI.COMM_WORLD.Get_rank() == 0:
             if not os.path.exists(self.args.save_dir):
@@ -81,7 +93,7 @@ class ddpg_agent:
         """
 
         # start to collect samples
-        for epoch in range(self.args.n_epochs):
+        for epoch in range(self.start_epoch, self.args.n_epochs):
             culmulative_reward = 0
             actor_loss, critic_loss = 0, 0
             for cycle in range(self.args.n_episodes):
@@ -174,9 +186,9 @@ class ddpg_agent:
             if MPI.COMM_WORLD.Get_rank() == 0:
                 print('[{}] epoch is: {}, eval success rate is: {:.3f}'.format(datetime.now(), epoch, success_rate))
                 date = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-                torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std, self.actor_network.state_dict()], \
-                            self.model_path + f'/model_{date}.pt')
-                with open(self.model_path + f'/args_{date}.txt', 'w') as f:
+                torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std, self.actor_network.state_dict(), self.critic_network.state_dict()], \
+                            self.model_path + f'/model_{self.args.training_label}_epoch{epoch}_{date}.pt')
+                with open(self.model_path + f'/args_{self.args.training_label}_{date}.txt', 'w') as f:
                     for arg in vars(self.args):
                         f.write(f'{arg}: {getattr(self.args, arg)}\n')
 

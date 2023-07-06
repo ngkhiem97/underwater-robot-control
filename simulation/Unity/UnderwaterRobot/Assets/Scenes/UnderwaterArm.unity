@@ -1957,7 +1957,7 @@ GameObject:
   - component: {fileID: 495694994}
   m_Layer: 0
   m_Name: contact_right_2
-  m_TagString: Untagged
+  m_TagString: contact
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -2507,7 +2507,7 @@ GameObject:
   - component: {fileID: 613643017}
   m_Layer: 0
   m_Name: contact_right_1
-  m_TagString: Untagged
+  m_TagString: contact
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -7982,7 +7982,7 @@ GameObject:
   - component: {fileID: 1274368044}
   m_Layer: 0
   m_Name: contact_left_2
-  m_TagString: Untagged
+  m_TagString: contact
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -10345,7 +10345,7 @@ GameObject:
   - component: {fileID: 1878699101}
   m_Layer: 0
   m_Name: contact_left_1
-  m_TagString: Untagged
+  m_TagString: contact
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0

@@ -34,4 +34,4 @@ if __name__ == "__main__":
         'max_timesteps': args.max_timesteps
     }
     ddpg_ag = ddpg_agent(args, env, env_params)
-    ddpg_ag.learn()
+    ddpg_ag.learn(args.continue_training, args.continue_epoch, args.save_dir)
