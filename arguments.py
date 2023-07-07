@@ -41,6 +41,7 @@ def get_args():
     parser.add_argument('--load-dir', type=str, default=None, help='the path to load the model')
     parser.add_argument('--continue-epoch', type=int, default=0, help='the epoch to continue training')
     parser.add_argument('--training-label', type=str, default='default', help='the label for training')
+    parser.add_argument('--headless', action='store_true', help='the interval to save the model')
 
     args = parser.parse_args()
 

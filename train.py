@@ -12,11 +12,12 @@ if __name__ == "__main__":
     os.environ['IN_MPI'] = '1'
 
     args = get_args()
+    no_graphics = True if args.headless else False
     env = UnderwaterEnv(file_name=args.file_name, 
                         worker_id=0, 
                         base_port=None, 
                         seed=args.seed, 
-                        no_graphics=False, 
+                        no_graphics=no_graphics, 
                         timeout_wait=60, 
                         side_channels=[],
                         log_folder='logs/', 
