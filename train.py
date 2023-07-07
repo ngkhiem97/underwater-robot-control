@@ -16,7 +16,7 @@ if __name__ == "__main__":
                         worker_id=0, 
                         base_port=None, 
                         seed=args.seed, 
-                        no_graphics=True, 
+                        no_graphics=False, 
                         timeout_wait=60, 
                         side_channels=[],
                         log_folder='logs/', 
@@ -25,6 +25,7 @@ if __name__ == "__main__":
                         reward_type=args.reward_type,
                         max_reward=args.max_reward,
                         nsubsteps=args.nsubsteps)
+    # stop for 5 seconds to wait for the environment to be ready
     obs = env.get_obs()
     env_params = {
         'obs': obs['observation'].shape[0],
@@ -34,4 +35,4 @@ if __name__ == "__main__":
         'max_timesteps': args.max_timesteps
     }
     ddpg_ag = ddpg_agent(args, env, env_params)
-    ddpg_ag.learn(args.continue_training, args.continue_epoch, args.save_dir)
+    ddpg_ag.learn()

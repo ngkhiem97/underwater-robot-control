@@ -11,7 +11,6 @@ public class ContactReward : MonoBehaviour
 
     public void OnTriggerEnter(Collider other) 
     {
-        Debug.Log("Other name: " + other.gameObject.name);
         if (other.gameObject.CompareTag("contact") && !contactsStored.Contains(other.gameObject.name))
         {
             // add the contact to the list of contacts

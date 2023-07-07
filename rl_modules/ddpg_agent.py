@@ -9,10 +9,9 @@ from rl_modules.models import actor, critic
 from mpi_utils.normalizer import normalizer
 from her_modules.her import her_sampler
 from env.underwater_env import UnderwaterEnv
-import time
 from torch.utils.tensorboard import SummaryWriter
 
-EPSILON = 1e-4
+EPSILON = 1e-3
 
 """
 ddpg with HER (MPI-version)
@@ -38,13 +37,17 @@ class ddpg_agent:
         # allow the training to continue from the last checkpoint if wanted
         self.start_epoch = 0
         if args.continue_training:
-            o_mean, o_std, g_mean, g_std, actor_model, critic_model = torch.load(args.load_dir, map_location=lambda storage, loc: storage)
+            if args.load_actor_only:
+                o_mean, o_std, g_mean, g_std, actor_model = torch.load(args.load_dir, map_location=lambda storage, loc: storage)
+            else:
+                o_mean, o_std, g_mean, g_std, actor_model, critic_model = torch.load(args.load_dir, map_location=lambda storage, loc: storage)
             self.o_norm.mean = o_mean
             self.o_norm.std = o_std
             self.g_norm.mean = g_mean
             self.g_norm.std = g_std
             self.actor_network.load_state_dict(actor_model)
-            self.critic_network.load_state_dict(critic_model)
+            if not args.load_actor_only:
+                self.critic_network.load_state_dict(critic_model)
             self.start_epoch = args.continue_epoch
 
         # sync the networks across the cpus

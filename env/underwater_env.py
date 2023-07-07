@@ -4,6 +4,7 @@ from mlagents_envs.side_channel.side_channel import SideChannel
 from mlagents_envs.environment import UnityEnvironment
 from scipy.spatial.transform import Rotation as R
 import numpy as np
+import time 
 
 EPSILON = 1e-8
 REWARD_SCALE = 1000.0 # hard coded for now

@@ -6,11 +6,11 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 0
-    path: Assets/Tests/PlayMode/PlayModeTestScenes/TargetPlacementTest.unity
-    guid: 3d328f38f71b71e47bb8d96869012ffe
+    path: 
+    guid: 00000000000000000000000000000000
   - enabled: 0
-    path: Assets/Tests/PlayMode/PlayModeTestScenes/TargetPlacementTest.unity
-    guid: 3d328f38f71b71e47bb8d96869012ffe
+    path: 
+    guid: 00000000000000000000000000000000
   - enabled: 1
     path: Assets/Scenes/UnderwaterArm.unity
     guid: 95446ce3ccdd49fa8abc28d57c41fdaa

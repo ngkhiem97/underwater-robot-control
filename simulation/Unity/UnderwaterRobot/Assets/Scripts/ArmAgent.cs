@@ -33,10 +33,12 @@ public class ArmAgent : Agent
     private ROSConnection Ros;
     private const string RosServiceName = "niryo_moveit";
     private const float JointAssignmentWait = 0.01f;
+    private const float GripperControlWait = 0.5f;
     private const float armReach = 0.54f;
     private ArticulationBody LeftGripper;
     private ArticulationBody RightGripper;
     private bool gripperControlInAction = false;
+    private int gripperControlForTimeSteps = 0;
 
     private string[] controlLinkNames =
         { "world/base_link/shoulder_link", "/arm_link", "/elbow_link", "/forearm_link", "/wrist_link", "/hand_link" };
@@ -91,7 +93,6 @@ public class ArmAgent : Agent
 
     public override void OnEpisodeBegin()
     {
-        Debug.Log("Episode begin");
         target.GetComponent<PosGenerator>().GenerateRandomPos();
         if (started)
         {
@@ -116,11 +117,11 @@ public class ArmAgent : Agent
 
     public override void OnActionReceived(ActionBuffers vectorAction)
     {
-        // Debug.Log("Action received as " + vectorAction.ContinuousActions[0] + ", " + vectorAction.ContinuousActions[1] + ", " + vectorAction.ContinuousActions[2] + ", " + vectorAction.ContinuousActions[3] + ", " + vectorAction.ContinuousActions[4] + ", " + vectorAction.DiscreteActions[0]);
         if (CheckLastAction(vectorAction))
         {
             return;
         }
+        Debug.Log("Action received as " + vectorAction.ContinuousActions[0] + ", " + vectorAction.ContinuousActions[1] + ", " + vectorAction.ContinuousActions[2] + ", " + vectorAction.ContinuousActions[3] + ", " + vectorAction.ContinuousActions[4] + ", " + vectorAction.DiscreteActions[0]);
         ProcessAction(vectorAction);
         Vector3 gripperPosition = ProcessGripperPosition(vectorAction);
         Vector3 gripperOrientation = ProcessGripperOrientation(vectorAction, gripperPosition);
@@ -152,6 +153,14 @@ public class ArmAgent : Agent
                 float.IsNaN(joint.transform.position.y) ||
                 float.IsNaN(joint.transform.position.z))
             {
+                Ros.Disconnect();
+                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            }
+        }
+        if (gripperControlInAction) 
+        {
+            gripperControlForTimeSteps++;
+            if (gripperControlForTimeSteps > 1000) {
                 Ros.Disconnect();
                 SceneManager.LoadScene(SceneManager.GetActiveScene().name);
             }
@@ -203,8 +212,8 @@ public class ArmAgent : Agent
         if (Mathf.Abs(LastContinuousAction[0] - vectorAction.ContinuousActions[0]) < 0.005f &&
             Mathf.Abs(LastContinuousAction[1] - vectorAction.ContinuousActions[1]) < 0.005f &&
             Mathf.Abs(LastContinuousAction[2] - vectorAction.ContinuousActions[2]) < 0.005f &&
-            Mathf.Abs(LastContinuousAction[3] - vectorAction.ContinuousActions[3]) < 0.0025f &&
-            Mathf.Abs(LastContinuousAction[4] - vectorAction.ContinuousActions[4]) < 0.0025f &&
+            Mathf.Abs(LastContinuousAction[3] - vectorAction.ContinuousActions[3]) < 0.01f &&
+            Mathf.Abs(LastContinuousAction[4] - vectorAction.ContinuousActions[4]) < 0.01f &&
             LastDiscreteAction == vectorAction.DiscreteActions[0])
         {
             return true;
@@ -361,6 +370,7 @@ public class ArmAgent : Agent
                                            orientation_rad.y * Mathf.Rad2Deg, 
                                            orientation_rad.z * Mathf.Rad2Deg).To<FLU>()
         };
+        
         Ros.SendServiceMessage<PointToPointServiceResponse>(RosServiceName, request, TrajectoryResponse);
     }
 
@@ -373,6 +383,7 @@ public class ArmAgent : Agent
         else
         {
             gripperControlInAction = false;
+            gripperControlForTimeSteps = 0;
         }
     }
 
@@ -408,6 +419,8 @@ public class ArmAgent : Agent
             gripperState = gripperStateCmd;
         }
         gripperControlInAction = false;
+        gripperControlForTimeSteps = 0;
+        yield return new WaitForSeconds(GripperControlWait);
     }
 
     private void CloseGripper()
