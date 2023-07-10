@@ -1,3 +1,6 @@
 # Underwater Robot Control
 
-This project focuses on developing an underwater robot that can navigate and move objects underwater. It utilizes the Unity simulation platform and employs the mlagents Python library for its manipulation program. The robot is designed to explore underwater environments effectively and perform tasks like collecting samples, retrieving objects, and assisting in research or salvage operations. By using advanced algorithms, the robot can navigate through complex underwater terrains with ease. The simulation aspect in Unity allows for realistic testing and training of the robot's abilities. This project aims to advance underwater exploration and engineering with its powerful underwater robot and simulation capabilities.
+Run the training with sparse rewards and headless mode:
+```
+python3 train.py --num-rollouts-per-mpi 1 --max-timesteps 3 --nsubsteps 40 --n-episodes 100 --n-epochs 1000 --reward-type sparse  --file-name ./simulation/build/UnderwaterArm --headless
+```

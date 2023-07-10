@@ -13,7 +13,6 @@ if __name__ == "__main__":
 
     args = get_args()
     no_graphics = True if args.headless else False
-
     env = UnderwaterEnv(file_name=args.file_name, 
                         worker_id=0, 
                         base_port=None, 
@@ -27,6 +26,7 @@ if __name__ == "__main__":
                         reward_type=args.reward_type,
                         max_reward=args.max_reward,
                         nsubsteps=args.nsubsteps)
+    # stop for 5 seconds to wait for the environment to be ready
     obs = env.get_obs()
     env_params = {
         'obs': obs['observation'].shape[0],

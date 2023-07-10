@@ -9,7 +9,6 @@ from rl_modules.models import actor, critic
 from mpi_utils.normalizer import normalizer
 from her_modules.her import her_sampler
 from env.underwater_env import UnderwaterEnv
-import time
 from torch.utils.tensorboard import SummaryWriter
 
 EPSILON = 1e-3

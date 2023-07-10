@@ -9,7 +9,6 @@ public class PosGenerator : MonoBehaviour
     public float maxDistance;
     private Transform tf;
     private Rigidbody rb;
-    private int count = 0;
     void Start()
     {
         tf = GetComponent<Transform>();
