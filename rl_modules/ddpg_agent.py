@@ -12,7 +12,7 @@ from env.underwater_env import UnderwaterEnv
 import time
 from torch.utils.tensorboard import SummaryWriter
 
-EPSILON = 1e-4
+EPSILON = 1e-3
 
 """
 ddpg with HER (MPI-version)
@@ -38,13 +38,17 @@ class ddpg_agent:
         # allow the training to continue from the last checkpoint if wanted
         self.start_epoch = 0
         if args.continue_training:
-            o_mean, o_std, g_mean, g_std, actor_model, critic_model = torch.load(args.load_dir, map_location=lambda storage, loc: storage)
+            if args.load_actor_only:
+                o_mean, o_std, g_mean, g_std, actor_model = torch.load(args.load_dir, map_location=lambda storage, loc: storage)
+            else:
+                o_mean, o_std, g_mean, g_std, actor_model, critic_model = torch.load(args.load_dir, map_location=lambda storage, loc: storage)
             self.o_norm.mean = o_mean
             self.o_norm.std = o_std
             self.g_norm.mean = g_mean
             self.g_norm.std = g_std
             self.actor_network.load_state_dict(actor_model)
-            self.critic_network.load_state_dict(critic_model)
+            if not args.load_actor_only:
+                self.critic_network.load_state_dict(critic_model)
             self.start_epoch = args.continue_epoch
 
         # sync the networks across the cpus
@@ -74,7 +78,7 @@ class ddpg_agent:
         self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward)
 
         # create the replay buffer
-        self.buffer = replay_buffer(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions, 12) # 12 is the hard coded multiplier
+        self.buffer = replay_buffer(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions, 1) # 12 is the hard coded multiplier
 
         # create the dict for store the model
         if MPI.COMM_WORLD.Get_rank() == 0:
@@ -107,42 +111,50 @@ class ddpg_agent:
                     # reset the environment
                     observation = self.env.reset()
                     obs = observation['observation']
-                    ags = observation['achieved_goals']
+                    ag = observation['achieved_goal']
                     g = observation['desired_goal']
             
                     # start to collect samples
                     for t in range(self.env_params['max_timesteps']):
-                        obs_new = obs
-                        while (np.linalg.norm(obs_new[0:3] - obs[0:3]) < EPSILON):
-                            with torch.no_grad():
-                                input_tensor = self._preproc_inputs(obs, g)
-                                pi = self.actor_network(input_tensor)
-                                action = self._select_actions(pi)
-                    
-                            # feed the actions into the environment
-                            observation_new, reward, _, _ = self.env.step(action)
-                            obs_new = observation_new['observation']
-                            ags_new = observation_new['achieved_goals']
+                        with torch.no_grad():
+                            input_tensor = self._preproc_inputs(obs, g)
+                            pi = self.actor_network(input_tensor)
+                            action = self._select_actions(pi)
+                
+                        # feed the actions into the environment
+                        observation_new, reward, _, _ = self.env.step(action)
+                        obs_new = observation_new['observation']
+                        ag_new = observation_new['achieved_goal']
                 
                         # append rollouts, multi goals implementation
-                        for ag in ags:
-                            ep_obs.append(obs.copy())
-                            ep_ag.append(ag.copy())
-                            ep_g.append(g.copy())
-                            ep_actions.append(action.copy())
+                        # for ag in ags:
+                        #     ep_obs.append(obs.copy())
+                        #     ep_ag.append(ag.copy())
+                        #     ep_g.append(g.copy())
+                        #     ep_actions.append(action.copy())
+
+                        ep_obs.append(obs.copy())
+                        ep_ag.append(ag.copy())
+                        ep_g.append(g.copy())
+                        ep_actions.append(action.copy())
                 
                         # re-assign the observation
                         obs = obs_new
-                        ags = ags_new
+                        ag = ag_new
+                        g = observation_new['desired_goal']
 
                         # update the reward
                         culmulative_reward += reward
                         print(f"epoch: {epoch}, cycle: {cycle}, t: {t}", "ep_obs: ", len(ep_obs), "ep_ag: ", len(ep_ag), "ep_g: ", len(ep_g), "ep_actions: ", len(ep_actions), "reward: ", reward, end='\r')
 
                     # multi goals implementation
-                    for ag in ags:
-                        ep_obs.append(obs.copy())
-                        ep_ag.append(ag.copy())
+                    # for ag in ags:
+                    #     ep_obs.append(obs.copy())
+                    #     ep_ag.append(ag.copy())
+
+                    ep_obs.append(obs.copy())
+                    ep_ag.append(ag.copy())
+                    
                     mb_obs.append(ep_obs)
                     mb_ag.append(ep_ag)
                     mb_g.append(ep_g)
@@ -266,7 +278,6 @@ class ddpg_agent:
 
     # update the network
     def _update_network(self):
-
         # sample the episodes
         transitions = self.buffer.sample(self.args.batch_size)
 

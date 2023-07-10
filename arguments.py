@@ -36,10 +36,12 @@ def get_args():
     parser.add_argument('--nsubsteps', type=int, default=20, help='the number of substeps')
     parser.add_argument('--file-name', type=str, default=None, help='the path to the environment')
     parser.add_argument('--max-reward', type=float, default=1, help='the max reward')
-    parser.add_argument('--continue-training', type=bool, default=False, help='if continue training')
+    parser.add_argument('--continue-training', action='store_true', help='if continue training')
+    parser.add_argument('--load-actor-only', action='store_true', help='if continue training')
     parser.add_argument('--load-dir', type=str, default=None, help='the path to load the model')
     parser.add_argument('--continue-epoch', type=int, default=0, help='the epoch to continue training')
     parser.add_argument('--training-label', type=str, default='default', help='the label for training')
+    parser.add_argument('--headless', action='store_true', help='if run the environment with headless')
 
     args = parser.parse_args()
 

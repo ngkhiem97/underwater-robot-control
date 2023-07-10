@@ -4,9 +4,10 @@ from mlagents_envs.side_channel.side_channel import SideChannel
 from mlagents_envs.environment import UnityEnvironment
 from scipy.spatial.transform import Rotation as R
 import numpy as np
+import time 
 
 EPSILON = 1e-8
-REWARD_SCALE = 1000.0 # hard coded for now
+REWARD_SCALE = 10.0 # hard coded for now
 
 class UnderwaterEnv:
     def __init__(
@@ -62,7 +63,7 @@ class UnderwaterEnv:
         get_obs = self.get_obs(self._is_terminal())
         obs = {
             'observation': get_obs['observation'],
-            'achieved_goals': get_obs['achieved_goals'],
+            'achieved_goal': get_obs['achieved_goal'],
             'desired_goal': get_obs['desired_goal']
         }
         reward = get_obs['reward']
@@ -84,12 +85,12 @@ class UnderwaterEnv:
     def get_obs(self, is_terminal=False):
         decision_steps, terminal_steps = self.env.get_steps(self.behavior_name)
         obs = decision_steps.obs[0]
-        achieved_goals = self._process_achieved_goals(obs[0][0:7])
-        desired_goal = np.concatenate((obs[0][8:14], [1]))
-        reward = terminal_steps.reward[0] if is_terminal else self._get_single_reward(achieved_goals, desired_goal)
+        achieved_goal = obs[0][0:3]
+        desired_goal = obs[0][8:11]
+        reward = terminal_steps.reward[0] if is_terminal else self._get_single_reward(achieved_goal, desired_goal)
         return {
             'observation': obs[0],
-            'achieved_goals': achieved_goals, # multi goals implementation
+            'achieved_goal': achieved_goal, # multi goals implementation
             'desired_goal': desired_goal,
             'reward': reward
         }
@@ -98,10 +99,8 @@ class UnderwaterEnv:
         assert goal_a.shape == goal_b.shape
         return np.linalg.norm(goal_a - goal_b, axis=-1)
     
-    def _get_single_reward(self, achieved_goals, desired_goal):
-        ag_pos = achieved_goals[0][0:3]
-        desired_goal_pos = desired_goal[0:3]
-        return self.compute_reward(np.array([ag_pos]), np.array([desired_goal_pos]))[0]
+    def _get_single_reward(self, achieved_goal, desired_goal):
+        return self.compute_reward(np.array([achieved_goal]), np.array([desired_goal]))[0]
     
     def compute_reward(self, achieved_goal, desired_goal, info=None):
         distance = self._goal_distance(achieved_goal, desired_goal)
