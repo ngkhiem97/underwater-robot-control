@@ -50,29 +50,32 @@ class UnderwaterEnv:
         self.nsubsteps = nsubsteps
 
     def reset(self):
+        print("====================Reset the environment====================")
         self.env.reset()
-        return self.step()[0]
+        return self.step(nsubsteps=1)[0]
     
-    def step(self, action=None):
+    def step(self, action=None, nsubsteps=None):
         if action is not None:
             self.env.set_actions(self.behavior_name, self._process_action(action))
-        for _ in range(self.nsubsteps):
+        if nsubsteps is None:
+            nsubsteps = self.nsubsteps
+        for _ in range(nsubsteps):
             if self._is_terminal():
                 break
             self.env.step()
-        get_obs = self.get_obs(self._is_terminal())
+        get_obs = self.get_obs(self._is_terminal()) # accomodation for HER implementation
         obs = {
             'observation': get_obs['observation'],
             'achieved_goal': get_obs['achieved_goal'],
             'desired_goal': get_obs['desired_goal']
         }
         reward = get_obs['reward']
-        if reward < -self.max_reward/REWARD_SCALE and self.reward_type == "dense":
-            self.env.reset()
         is_done = self._is_terminal()
         info = {
             'is_success': reward == self.max_reward,
         }
+        if (self.reward_type == "dense" and reward < -self.max_reward/REWARD_SCALE):
+            self.env.reset()
         return obs, reward, is_done, info
     
     def _is_terminal(self):
@@ -85,8 +88,9 @@ class UnderwaterEnv:
     def get_obs(self, is_terminal=False):
         decision_steps, terminal_steps = self.env.get_steps(self.behavior_name)
         obs = decision_steps.obs[0]
-        achieved_goal = obs[0][0:3]
-        desired_goal = obs[0][8:11]
+        achieved_goal = obs[0][0:3] 
+        # achieved_goal = obs[0][8:11] temporarily commented out for now
+        desired_goal = obs[0][8:11] # - np.array([0.0, 0.0, 0.5]) hard coded for now
         reward = terminal_steps.reward[0] if is_terminal else self._get_single_reward(achieved_goal, desired_goal)
         return {
             'observation': obs[0],
@@ -105,12 +109,19 @@ class UnderwaterEnv:
     def compute_reward(self, achieved_goal, desired_goal, info=None):
         distance = self._goal_distance(achieved_goal, desired_goal)
         if self.reward_type == "sparse":
-            reward = -(distance > 0.05).astype(np.float32) * self.max_reward # hard coded for now
-            reward[reward == 0] = self.max_reward # hard coded for now
+            reward = (distance < 0.001).astype(np.float32) * self.max_reward # hard coded for now
+            if info is not None:
+                info = np.squeeze(info)
+                assert reward.shape == info.shape
+                reward[info > 0] = self.max_reward
             return reward
         else:
             reward = -distance.astype(np.float32)/REWARD_SCALE
-            reward[reward > -EPSILON] = self.max_reward # hard coded for now
+            # reward[reward > -EPSILON] = self.max_reward # hard coded for now
+            if info is not None:
+                info = np.squeeze(info)
+                assert reward.shape == info.shape
+                reward[info > 0] = self.max_reward
             return reward
             
     def _process_action(self, action):

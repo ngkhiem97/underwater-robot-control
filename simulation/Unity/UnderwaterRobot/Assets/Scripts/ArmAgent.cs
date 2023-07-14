@@ -24,7 +24,7 @@ public class ArmAgent : Agent
     public Vector3 testOrientation;
     private const int k_NumRobotJoints = 6;
     private ArticulationBody[] articulationChain;
-    private float[] initialJointTargets = new float[6];
+    private float[] initialJointTargets = new float[k_NumRobotJoints];
     private List<GameObject> contacts = new List<GameObject>();
     private GameObject gripperBase;
     private int gripperState = 1;
@@ -33,7 +33,7 @@ public class ArmAgent : Agent
     private ROSConnection Ros;
     private const string RosServiceName = "niryo_moveit";
     private const float JointAssignmentWait = 0.01f;
-    private const float GripperControlWait = 0.5f;
+    private const float GripperControlWait = 0.1f;
     private const float armReach = 0.54f;
     private ArticulationBody LeftGripper;
     private ArticulationBody RightGripper;
@@ -51,13 +51,6 @@ public class ArmAgent : Agent
     {
         // configuring the joints
         articulationChain = GetComponentsInChildren<ArticulationBody>();
-        // ConfigJoints();
-        int jointTargetIndex = 0;
-        foreach (ArticulationBody joint in articulationChain)
-        {
-            // saving initial joint targets
-            initialJointTargets[jointTargetIndex] = joint.xDrive.target;
-        }
 
         // getting the gripper's contacts
         string[] contactsNames = {"contact_left_1", "contact_left_2", "contact_right_1", "contact_right_2"};
@@ -81,6 +74,13 @@ public class ArmAgent : Agent
             controlLinks[i] = this.transform.Find(linkName).GetComponent<ArticulationBody>();
         }
 
+        // ConfigJoints();
+        for (var joint = 0; joint < k_NumRobotJoints; joint++)
+        {
+            var jointXDrive = controlLinks[joint].xDrive;
+            initialJointTargets[joint] = jointXDrive.target;
+        }
+
         // Find left and right fingers
         var rightGripper = linkName + "/tool_link/gripper_base/servo_head/control_rod_right/right_gripper";
         var leftGripper = linkName + "/tool_link/gripper_base/servo_head/control_rod_left/left_gripper";
@@ -93,7 +93,13 @@ public class ArmAgent : Agent
 
     public override void OnEpisodeBegin()
     {
-        target.GetComponent<PosGenerator>().GenerateRandomPos();
+        target.GetComponent<PosGenerator>().ResetPos();
+        for (var joint = 0; joint < k_NumRobotJoints; joint++)
+        {
+            var joint1XDrive = controlLinks[joint].xDrive;
+            joint1XDrive.target = initialJointTargets[joint];
+            controlLinks[joint].xDrive = joint1XDrive;
+        }
         if (started)
         {
             return;
@@ -117,12 +123,10 @@ public class ArmAgent : Agent
 
     public override void OnActionReceived(ActionBuffers vectorAction)
     {
-        if (CheckLastAction(vectorAction))
+        if (CheckAction(vectorAction))
         {
             return;
         }
-        Debug.Log("Action received as " + vectorAction.ContinuousActions[0] + ", " + vectorAction.ContinuousActions[1] + ", " + vectorAction.ContinuousActions[2] + ", " + vectorAction.ContinuousActions[3] + ", " + vectorAction.ContinuousActions[4] + ", " + vectorAction.DiscreteActions[0]);
-        ProcessAction(vectorAction);
         Vector3 gripperPosition = ProcessGripperPosition(vectorAction);
         Vector3 gripperOrientation = ProcessGripperOrientation(vectorAction, gripperPosition);
         int gripperOpen = vectorAction.DiscreteActions[0];
@@ -183,38 +187,32 @@ public class ArmAgent : Agent
 
     private Vector3 ProcessGripperPosition(ActionBuffers vectorAction)
     {
-        float x_new = Utils.ConvertRange(vectorAction.ContinuousActions[0], -1, 1, -1, 1);
-        float y_new = Utils.ConvertRange(vectorAction.ContinuousActions[1], -1, 1, 0, 1);
-        float z_new = Utils.ConvertRange(vectorAction.ContinuousActions[2], -1, 1, 0, 1);
-        Vector3 gripperPosition = Utils.ScaleToLength(new Vector3(x_new, y_new, z_new), 1);
-        gripperPosition = Utils.ScaleToScale(gripperPosition, 1, armReach * 0.75f);
-        gripperPosition = Utils.ShiftVector(gripperPosition, controlLinks[1].transform.position.x,
-                                                             controlLinks[1].transform.position.y,
-                                                             controlLinks[1].transform.position.z);
+        float x_new = (vectorAction.ContinuousActions[0]) * 0.05f;
+        float y_new = (vectorAction.ContinuousActions[1]) * 0.05f;
+        float z_new = (vectorAction.ContinuousActions[2]) * 0.05f;
+        Vector3 change = new Vector3(x_new, y_new, z_new);
+        Vector3 gripperPosition = GetToolLinkPosition() + new Vector3(x_new, y_new, z_new);
         return gripperPosition;
     }
 
-    private static Vector3 ProcessGripperOrientation(ActionBuffers vectorAction, Vector3 gripperPosition)
+    private Vector3 ProcessGripperOrientation(ActionBuffers vectorAction, Vector3 gripperPosition)
     {
-        float x_orientation = Utils.ConvertRange(vectorAction.ContinuousActions[3], -1, 1, -Mathf.PI*3/4, Mathf.PI*3/4);
-        float z_orientation = Utils.ConvertRange(vectorAction.ContinuousActions[4], -1, 1, -Mathf.PI*1/2, Mathf.PI*1/2);
-        return new Vector3(x_orientation,
-                           Utils.GetYRotationFromXZ(gripperPosition.x, gripperPosition.z),
-                           z_orientation);
+        float x_orientation = vectorAction.ContinuousActions[3] * Mathf.PI * 0.005f;
+        float z_orientation = vectorAction.ContinuousActions[4] * Mathf.PI * 0.005f;
+        Vector3 wlOrientation = GetGripperBaseOrientation();
+        Vector3 gripperOrientation = new Vector3(wlOrientation.x + x_orientation,
+                                                 Utils.GetYRotationFromXZ(gripperPosition.x, gripperPosition.z),
+                                                 wlOrientation.z + z_orientation);
+        return gripperOrientation;
     }
 
-    private bool CheckLastAction(ActionBuffers vectorAction)
+    private bool CheckAction(ActionBuffers vectorAction)
     {
-        if (LastContinuousAction == null || LastDiscreteAction == -1)
-        {
-            return false;
-        }
-        if (Mathf.Abs(LastContinuousAction[0] - vectorAction.ContinuousActions[0]) < 0.005f &&
-            Mathf.Abs(LastContinuousAction[1] - vectorAction.ContinuousActions[1]) < 0.005f &&
-            Mathf.Abs(LastContinuousAction[2] - vectorAction.ContinuousActions[2]) < 0.005f &&
-            Mathf.Abs(LastContinuousAction[3] - vectorAction.ContinuousActions[3]) < 0.01f &&
-            Mathf.Abs(LastContinuousAction[4] - vectorAction.ContinuousActions[4]) < 0.01f &&
-            LastDiscreteAction == vectorAction.DiscreteActions[0])
+        if (vectorAction.ContinuousActions[0] < 0.001f &&
+            vectorAction.ContinuousActions[1] < 0.001f &&
+            vectorAction.ContinuousActions[2] < 0.001f &&
+            vectorAction.ContinuousActions[3] < 0.001f &&
+            vectorAction.ContinuousActions[4] < 0.001f)
         {
             return true;
         }
@@ -346,6 +344,16 @@ public class ArmAgent : Agent
         return target.angularVelocity -  GetGripperAngularVelocity();
     }
 
+    private Vector3 GetToolLinkPosition()
+    {
+        return this.transform.Find("world/base_link/shoulder_link/arm_link/elbow_link/forearm_link/wrist_link/hand_link/tool_link").position;
+    }
+
+    private Vector3 GetGripperBaseOrientation()
+    {
+        return Utils.ConvertRotation(this.transform.Find("world/base_link/shoulder_link/arm_link/elbow_link/forearm_link/wrist_link/hand_link/tool_link").rotation.eulerAngles);
+    }
+
     private NiryoMoveitJointsMsg CurrentJointConfig()
     {
         var joints = new NiryoMoveitJointsMsg();
@@ -362,7 +370,7 @@ public class ArmAgent : Agent
         gripperControlInAction = true;
         var request = new PointToPointServiceRequest();
         request.joints_input = CurrentJointConfig();
-        Vector3 offset = new Vector3(0, 0, 0);
+        Vector3 offset = new Vector3(0.000012391f, 0.001206f, -0.0011351f);
         request.finish_pose = new PoseMsg
         {
             position = (destination + offset).To<FLU>(),
@@ -450,9 +458,16 @@ public class ArmAgent : Agent
     internal void ContactEntered(Collider other)
     {
         numContactEntered++;
+        if (gripperState == 1)
+        {
+            SetReward(numContactEntered*0.25f);
+            numContactEntered = 0;
+            EndEpisode();
+        }
         if (numContactEntered == 4)
         {
             SetReward(1f);
+            numContactEntered = 0;
             EndEpisode();
         }
     }

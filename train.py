@@ -3,7 +3,7 @@ from rl_modules.ddpg_agent import ddpg_agent
 from arguments import get_args
 import os
 
-MAX_TIMESTEPS = 100 # hard coded for now
+MAX_TIMESTEPS = 3 # hard coded for now
 
 if __name__ == "__main__":
     # take the configuration for the HER

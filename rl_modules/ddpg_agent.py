@@ -12,6 +12,7 @@ from env.underwater_env import UnderwaterEnv
 from torch.utils.tensorboard import SummaryWriter
 
 EPSILON = 1e-3
+MULTI_GOALS_MULTIPLIER = 1
 
 """
 ddpg with HER (MPI-version)
@@ -77,7 +78,7 @@ class ddpg_agent:
         self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward)
 
         # create the replay buffer
-        self.buffer = replay_buffer(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions, 1) # 12 is the hard coded multiplier
+        self.buffer = replay_buffer(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions, MULTI_GOALS_MULTIPLIER) # 12 is the hard coded multiplier
 
         # create the dict for store the model
         if MPI.COMM_WORLD.Get_rank() == 0:
@@ -95,17 +96,19 @@ class ddpg_agent:
 
         """
 
+        print("========================Start to collect samples...========================")
+
         # start to collect samples
         for epoch in range(self.start_epoch, self.args.n_epochs):
             culmulative_reward = 0
             actor_loss, critic_loss = 0, 0
             for cycle in range(self.args.n_episodes):
-                mb_obs, mb_ag, mb_g, mb_actions = [], [], [], []
+                mb_obs, mb_ag, mb_g, mb_actions, mb_rewards = [], [], [], [], []
 
                 for _ in range(self.args.num_rollouts_per_mpi):
             
                     # reset the rollouts
-                    ep_obs, ep_ag, ep_g, ep_actions = [], [], [], []
+                    ep_obs, ep_ag, ep_g, ep_actions, ep_rewards = [], [], [], [], []
             
                     # reset the environment
                     observation = self.env.reset()
@@ -115,13 +118,20 @@ class ddpg_agent:
             
                     # start to collect samples
                     for t in range(self.env_params['max_timesteps']):
+
+                        print("obs: ", obs[0:3])
+                        print("achieved_goal: ", ag)
+                        print("desired_goal: ", g)
+
                         with torch.no_grad():
                             input_tensor = self._preproc_inputs(obs, g)
                             pi = self.actor_network(input_tensor)
                             action = self._select_actions(pi)
+
+                        print("action: ", action)
                 
                         # feed the actions into the environment
-                        observation_new, reward, _, _ = self.env.step(action)
+                        observation_new, reward, is_done, _ = self.env.step(action)
                         obs_new = observation_new['observation']
                         ag_new = observation_new['achieved_goal']
                 
@@ -136,15 +146,30 @@ class ddpg_agent:
                         ep_ag.append(ag.copy())
                         ep_g.append(g.copy())
                         ep_actions.append(action.copy())
+                        ep_rewards.append(np.array([reward.copy()]))
                 
                         # re-assign the observation
                         obs = obs_new
                         ag = ag_new
-                        g = observation_new['desired_goal']
+                        g = observation_new['desired_goal'] # goal might change because of collisions
+
+                        print("obs_next: ", obs[0:3])
+                        print("achieved_goal_next: ", ag)
+                        print("desired_goal_next: ", g)
+                        print("reward: ", reward)
+
+                        if reward > 0:
+                            reward = 1
 
                         # update the reward
                         culmulative_reward += reward
-                        print(f"epoch: {epoch}, cycle: {cycle}, t: {t}", "ep_obs: ", len(ep_obs), "ep_ag: ", len(ep_ag), "ep_g: ", len(ep_g), "ep_actions: ", len(ep_actions), "reward: ", reward, end='\r')
+                        print(f"epoch: {epoch}, cycle: {cycle}, t: {t}", "ep_obs: ", len(ep_obs), "ep_ag: ", len(ep_ag), "ep_g: ", len(ep_g), "ep_actions: ", len(ep_actions), "reward: ")
+
+                        if is_done:
+                            observation = self.env.reset()
+                            obs = observation['observation']
+                            ag = observation['achieved_goal']
+                            g = observation['desired_goal']
 
                     # multi goals implementation
                     # for ag in ags:
@@ -158,21 +183,28 @@ class ddpg_agent:
                     mb_ag.append(ep_ag)
                     mb_g.append(ep_g)
                     mb_actions.append(ep_actions)
+                    mb_rewards.append(ep_rewards)
         
                 # convert them into arrays
                 mb_obs = np.array(mb_obs)
                 mb_ag = np.array(mb_ag)
                 mb_g = np.array(mb_g)
                 mb_actions = np.array(mb_actions)
+                mb_rewards = np.array(mb_rewards)
+
+                if (np.all(mb_rewards == 0)):
+                    cycle -= 1
+                    continue
         
                 # store the episodes
-                self.buffer.store_episode([mb_obs, mb_ag, mb_g, mb_actions])
-                self._update_normalizer([mb_obs, mb_ag, mb_g, mb_actions])
+                self.buffer.store_episode([mb_obs, mb_ag, mb_g, mb_actions, mb_rewards])
+                self._update_normalizer([mb_obs, mb_ag, mb_g, mb_actions, mb_rewards])
 
                 total_actor_loss, total_critic_loss = 0, 0
-                for _ in range(self.args.n_batches):
+                for i in range(self.args.n_batches):
             
                     # train the network
+                    print(f'========================update_network({i})========================')
                     actor_loss, critic_loss = self._update_network()
                     total_actor_loss += actor_loss
                     total_critic_loss += critic_loss
@@ -186,7 +218,7 @@ class ddpg_agent:
                 self._soft_update_target_network(self.critic_target_network, self.critic_network)
     
             # start to do the evaluation
-            success_rate = self._eval_agent()
+            success_rate = self._eval_agent(epoch)
 
             # Tensorboard
             self.writer.add_scalar('actor_loss', actor_loss, epoch)
@@ -236,7 +268,7 @@ class ddpg_agent:
 
     # update the normalizer
     def _update_normalizer(self, episode_batch):
-        mb_obs, mb_ag, mb_g, mb_actions = episode_batch
+        mb_obs, mb_ag, mb_g, mb_actions, mb_rewards = episode_batch
         mb_obs_next = mb_obs[:, 1:, :]
         mb_ag_next = mb_ag[:, 1:, :]
 
@@ -250,6 +282,7 @@ class ddpg_agent:
                        'actions': mb_actions, 
                        'obs_next': mb_obs_next,
                        'ag_next': mb_ag_next,
+                       'r': mb_rewards
                        }
         transitions = self.her_module.sample_her_transitions(buffer_temp, num_transitions)
         obs, g = transitions['obs'], transitions['g']
@@ -284,6 +317,15 @@ class ddpg_agent:
         o, o_next, g = transitions['obs'], transitions['obs_next'], transitions['g']
         transitions['obs'], transitions['g'] = self._preproc_og(o, g)
         transitions['obs_next'], transitions['g_next'] = self._preproc_og(o_next, g)
+
+        print("obs: ", transitions['obs'][0][0:3])
+        print("achieved_goal: ", transitions['ag'][0])
+        print("desired_goal: ", transitions['g'][0])
+        print("obs_next: ", transitions['obs_next'][0][0:3])
+        print("achieved_goal_next: ", transitions['ag_next'][0])
+        print("desired_goal_next: ", transitions['g_next'][0])
+        print("actions: ", transitions['actions'][0])
+        print("r: ", transitions['r'][0])
 
         # start to do the update
         obs_norm = self.o_norm.normalize(transitions['obs'])
@@ -344,8 +386,10 @@ class ddpg_agent:
         return actor_loss.item(), critic_loss.item()
 
     # do the evaluation
-    def _eval_agent(self):
+    def _eval_agent(self, epoch=0):
         total_success_rate = []
+        valid_cumulative_reward = 0
+        distance = 0
         for _ in range(self.args.n_test_rollouts):
             per_success_rate = []
             observation = self.env.reset()
@@ -358,12 +402,19 @@ class ddpg_agent:
             
                     # convert the actions
                     actions = pi.detach().cpu().numpy().squeeze()
-                observation_new, _, _, info = self.env.step(actions)
+                observation_new, reward, _, info = self.env.step(actions)
                 obs = observation_new['observation']
                 g = observation_new['desired_goal']
+                ag = observation_new['achieved_goal']
+                distance += np.linalg.norm(ag - g)
                 per_success_rate.append(info['is_success'])
+                valid_cumulative_reward += reward
             total_success_rate.append(per_success_rate)
         total_success_rate = np.array(total_success_rate)
         local_success_rate = np.mean(total_success_rate[:, -1])
         global_success_rate = MPI.COMM_WORLD.allreduce(local_success_rate, op=MPI.SUM)
+        valid_cumulative_reward /= self.args.n_test_rollouts
+        distance /= self.args.n_test_rollouts
+        self.writer.add_scalar('valid_cumulative_reward', valid_cumulative_reward, epoch)
+        self.writer.add_scalar('distance', distance, epoch)
         return global_success_rate / MPI.COMM_WORLD.Get_size()

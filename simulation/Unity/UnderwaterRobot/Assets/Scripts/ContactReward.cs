@@ -19,6 +19,7 @@ public class ContactReward : MonoBehaviour
             {
                 contactsStored = new string[0];
             }
+            Debug.Log("Contact made with " + other.gameObject.name);
             agent.GetComponent<ArmAgent>().ContactEntered(other);
         }
     }

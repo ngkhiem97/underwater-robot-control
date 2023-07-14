@@ -9,10 +9,22 @@ public class PosGenerator : MonoBehaviour
     public float maxDistance;
     private Transform tf;
     private Rigidbody rb;
+    private Vector3 initialPos;
+    private Vector3 initialRot;
     void Start()
     {
         tf = GetComponent<Transform>();
         rb = GetComponent<Rigidbody>();
+        initialPos = tf.position;
+        initialRot = tf.eulerAngles;
+    }
+
+    public void ResetPos()
+    {
+        tf.position = initialPos;
+        tf.eulerAngles = initialRot;
+        rb.velocity = Vector3.zero;
+        rb.angularVelocity = Vector3.zero;
     }
 
     public void GenerateRandomPos()

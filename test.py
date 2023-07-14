@@ -1,5 +1,5 @@
 import torch
-from rl_modules.models import actor
+from rl_modules.models import actor, critic
 from arguments import get_args
 from env.underwater_env import UnderwaterEnv
 import numpy as np
@@ -18,8 +18,8 @@ def process_inputs(o, g, o_mean, o_std, g_mean, g_std, args):
 
 if __name__ == '__main__':
     args = get_args()
-    model_path = args.save_dir + 'UnderwaterEnv' + '/model_2023-07-05-07-56-09.pt'
-    o_mean, o_std, g_mean, g_std, model = torch.load(model_path, map_location=lambda storage, loc: storage)
+    model_path = args.save_dir + 'UnderwaterEnv' + '/model_default_epoch528_2023-07-11-13-07-43.pt'
+    o_mean, o_std, g_mean, g_std, actor_model, critic_model = torch.load(model_path, map_location=lambda storage, loc: storage)
     env = UnderwaterEnv(file_name=None, 
                         worker_id=0, 
                         base_port=None, 
@@ -36,19 +36,19 @@ if __name__ == '__main__':
     obs = env.get_obs()
     env_params = {
         'obs': obs['observation'].shape[0],
-        'goal': obs['desired_goal'].shape[0],
+        'goal': 3,
         'action': env.action_space.continuous_size + env.action_space.discrete_size,
         'action_max': env.action_max, # hard coded for now
         'max_timesteps': args.max_timesteps
     }
     actor_network = actor(env_params)
-    actor_network.load_state_dict(model)
+    actor_network.load_state_dict(actor_model)
     actor_network.eval()
-    for i in range(10):
+    for i in range(args.n_test_rollouts):
         observation = env.reset()
         obs = observation['observation']
         g = observation['desired_goal']
-        for t in range(50):
+        for t in range(env_params['max_timesteps']):
             inputs = process_inputs(obs, g, o_mean, o_std, g_mean, g_std, args)
             with torch.no_grad():
                 pi = actor_network(inputs)
