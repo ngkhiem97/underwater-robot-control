@@ -15,7 +15,7 @@ public class ContactReward : MonoBehaviour
         {
             // add the contact to the list of contacts
             contactsStored.Append(other.gameObject.name);
-            if (contactsStored.Length == 4)
+            if (contactsStored.Length == 2)
             {
                 contactsStored = new string[0];
             }
