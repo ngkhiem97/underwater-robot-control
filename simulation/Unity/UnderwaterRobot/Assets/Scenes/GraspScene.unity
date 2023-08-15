@@ -818,8 +818,16 @@ PrefabInstance:
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1319972114830341003, guid: 67c73f8cd183f206894e310cafe6f5f4, type: 3}
+      propertyPath: m_BrainParameters.VectorObservationSize
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 1319972114830341003, guid: 67c73f8cd183f206894e310cafe6f5f4, type: 3}
       propertyPath: m_BrainParameters.VectorActionSize.Array.size
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1319972114830341003, guid: 67c73f8cd183f206894e310cafe6f5f4, type: 3}
+      propertyPath: m_BrainParameters.NumStackedVectorObservations
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 1319972114830341003, guid: 67c73f8cd183f206894e310cafe6f5f4, type: 3}
       propertyPath: m_BrainParameters.VectorActionSize.Array.data[0]
@@ -847,15 +855,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6099163712520220093, guid: 67c73f8cd183f206894e310cafe6f5f4, type: 3}
       propertyPath: m_LocalScale.x
-      value: 0.020637223
+      value: 0.025729796
       objectReference: {fileID: 0}
     - target: {fileID: 6099163712520220093, guid: 67c73f8cd183f206894e310cafe6f5f4, type: 3}
       propertyPath: m_LocalScale.y
-      value: 0.020637223
+      value: 0.025729796
       objectReference: {fileID: 0}
     - target: {fileID: 6099163712520220093, guid: 67c73f8cd183f206894e310cafe6f5f4, type: 3}
       propertyPath: m_LocalScale.z
-      value: 0.020637223
+      value: 0.025729796
+      objectReference: {fileID: 0}
+    - target: {fileID: 6099163712520220093, guid: 67c73f8cd183f206894e310cafe6f5f4, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1.0375
       objectReference: {fileID: 0}
     - target: {fileID: 6099163712520220093, guid: 67c73f8cd183f206894e310cafe6f5f4, type: 3}
       propertyPath: m_LocalPosition.z

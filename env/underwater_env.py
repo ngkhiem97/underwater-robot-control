@@ -98,7 +98,7 @@ class UnderwaterEnv:
         desired_goal = obs[0][8:11]
         reward = terminal_steps.reward[0] if is_terminal else self._get_single_reward(achieved_goal, desired_goal)
         return {
-            'observation': obs[0],
+            'observation': obs[0][-6:],
             'achieved_goal': achieved_goal,
             'desired_goal': desired_goal,
             'reward': reward

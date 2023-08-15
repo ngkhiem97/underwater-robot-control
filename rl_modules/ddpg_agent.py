@@ -119,7 +119,7 @@ class ddpg_agent:
                     # start to collect samples
                     for t in range(self.env_params['max_timesteps']):
 
-                        print("obs: ", obs[0:3])
+                        print("obs: ", obs)
                         print("achieved_goal: ", ag)
                         print("desired_goal: ", g)
 
@@ -145,7 +145,7 @@ class ddpg_agent:
                         obs = obs_new
                         ag = ag_new
 
-                        print("obs_next: ", obs[0:3])
+                        print("obs_next: ", obs)
                         print("achieved_goal_next: ", ag)
                         print("desired_goal_next: ", g)
                         print("reward: ", reward)
@@ -307,10 +307,10 @@ class ddpg_agent:
         transitions['obs'], transitions['g'] = self._preproc_og(o, g)
         transitions['obs_next'], transitions['g_next'] = self._preproc_og(o_next, g)
 
-        print("obs: ", transitions['obs'][0][0:3])
+        print("obs: ", transitions['obs'][0])
         print("achieved_goal: ", transitions['ag'][0])
         print("desired_goal: ", transitions['g'][0])
-        print("obs_next: ", transitions['obs_next'][0][0:3])
+        print("obs_next: ", transitions['obs_next'][0])
         print("achieved_goal_next: ", transitions['ag_next'][0])
         print("desired_goal_next: ", transitions['g_next'][0])
         print("actions: ", transitions['actions'][0])

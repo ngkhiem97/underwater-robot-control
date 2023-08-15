@@ -122,9 +122,7 @@ public class ArmAgent : Agent
         sensor.AddObservation(GetTargetPosition());
         sensor.AddObservation(GetTargetOrientation());
         sensor.AddObservation(GetDeltaPosition());
-        sensor.AddObservation(GetDeltaOrientation());
         sensor.AddObservation(GetTargetRelativeVelocity());
-        sensor.AddObservation(GetTargetRelativeAngularVelocity());
     }
 
     public override void OnActionReceived(ActionBuffers vectorAction)
