@@ -4,16 +4,11 @@ from arguments import get_args
 import os
 
 if __name__ == "__main__":
-    # take the configuration for the HER
-    os.environ['OMP_NUM_THREADS'] = '1'
-    os.environ['MKL_NUM_THREADS'] = '1'
-    os.environ['IN_MPI'] = '1'
-
     args = get_args()
     no_graphics = True if args.headless else False
     env = UnderwaterEnv(file_name=args.file_name, 
                         worker_id=0, 
-                        base_port=5005, 
+                        base_port=5004, 
                         seed=args.seed, 
                         no_graphics=no_graphics, 
                         timeout_wait=60, 

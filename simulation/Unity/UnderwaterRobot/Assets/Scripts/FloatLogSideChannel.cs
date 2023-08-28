@@ -17,10 +17,6 @@ public class FloatLogSideChannel : SideChannel
     {
         float receivedFloat = msg.ReadFloat32();
         Debug.Log("From Python : " + receivedFloat);
-        if (receivedFloat > 0.8) 
-        {
-            target.GetComponent<PosGenerator>().IncreaseHardness();
-        }
     }
 
     public void SendDebugStatementToPython(string logString, string stackTrace, LogType type)

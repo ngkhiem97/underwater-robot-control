@@ -34,7 +34,7 @@ public class ArmAgent : Agent
     private ROSConnection Ros;
     private const string RosServiceName = "niryo_moveit";
     private const float JointAssignmentWait = 0.001f;
-    private const float GripperControlWait = 0.002f;
+    private const float GripperControlWait = 0.005f;
     private const float armReach = 0.54f;
     private ArticulationBody LeftGripper;
     private ArticulationBody RightGripper;
@@ -136,7 +136,7 @@ public class ArmAgent : Agent
         }
 
         // start grasping
-        if (GetDeltaPosition().magnitude < 0.04f)
+        if (GetDeltaPosition().magnitude < 0.02f)
         {
             Debug.Log("Reached target at: " + GetTargetPosition());
             Vector3 offset = new Vector3(0.01f, -0.04f, 0.04f);
@@ -222,7 +222,7 @@ public class ArmAgent : Agent
         }
         Vector3 gripperOrientation = new Vector3(x_angle,
                                                  Utils.GetYRotationFromXZ(gripperPosition.x, gripperPosition.z),
-                                                 z_angle);
+                                                 0.0f);
 
         return gripperOrientation;
     }
@@ -445,6 +445,8 @@ public class ArmAgent : Agent
             else
             {
                 CloseGripper();
+                // numContactEntered = 0;
+                // EndEpisode();
             }
             gripperState = gripperStateCmd;
         }

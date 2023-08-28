@@ -11,8 +11,7 @@ public class PosGenerator : MonoBehaviour
     private Rigidbody rb;
     private Vector3 initialPos;
     private Vector3 initialRot;
-    private int hardness = 0;
-    private const float SPEED = 0.005f;
+    private const float SPEED = 0.002f;
     void Start()
     {
         tf = GetComponent<Transform>();
@@ -26,7 +25,6 @@ public class PosGenerator : MonoBehaviour
         Vector3 changedVel = Random.insideUnitSphere;
         changedVel = changedVel.normalized;
         changedVel *= SPEED/2;
-        changedVel.z = -Mathf.Abs(changedVel.z); // prevent out of reach movement
         rb.velocity = rb.velocity + changedVel;
     }
 
