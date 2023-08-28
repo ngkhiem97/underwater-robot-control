@@ -1,6 +1,8 @@
 # RL-FloatGrasp
 
-This repository contains the code for the paper "Reinforcement learning technique for grasping random floating object in 3D space with 6DOF robotic arm" by [K. Nguyen]. The paper introduces a novel approach applying deep reinforcement learning to enable a robotic arm with 6 degrees of freedom to adeptly grasp a dynamically moving object within a 3D space, yielding superior outcomes over traditional methods, as showcased through experimental validation in the Unity simulator.
+This repository contains the code for the paper "Reinforcement learning technique for grasping random floating object in 3D space with 6DOF robotic arm" by [K. Nguyen]. 
+
+The paper introduces a novel approach applying deep reinforcement learning to enable a robotic arm with 6 degrees of freedom to adeptly grasp a dynamically moving object within a 3D space, yielding superior outcomes over benchmark methods, as showcased through experimental validation in the Unity simulator.
 
 ## Start the ROS MoveIt motion planning tool in Docker
 
