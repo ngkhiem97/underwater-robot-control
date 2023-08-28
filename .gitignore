@@ -1,2 +1,4 @@
 saved_models/
 runs/
+__pycache__/
+gen_data.csv

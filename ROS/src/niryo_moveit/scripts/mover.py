@@ -18,10 +18,14 @@ from geometry_msgs.msg import Quaternion, Pose
 from std_msgs.msg import String
 from moveit_commander.conversions import pose_to_list
 
+import time
+import threading
+
 from niryo_moveit.srv import PointToPointService, PointToPointServiceRequest, PointToPointServiceResponse
 
 group_name = "arm"
 move_group = moveit_commander.MoveGroupCommander(group_name)
+move_group.set_planning_time(0.05)
 
 joint_names = ['joint_1', 'joint_2', 'joint_3', 'joint_4', 'joint_5', 'joint_6']
 
@@ -73,6 +77,7 @@ def plan_point_to_point(req):
 
     # If the trajectory has no points, planning has failed and we return an empty response
     if not plan.joint_trajectory.points:
+        move_group.clear_pose_targets()
         return response
 
     # If trajectory planning worked for all pick and place stages, add plan to response
@@ -80,7 +85,6 @@ def plan_point_to_point(req):
     move_group.clear_pose_targets()
 
     return response
-
 
 def moveit_server():
     moveit_commander.roscpp_initialize(sys.argv)

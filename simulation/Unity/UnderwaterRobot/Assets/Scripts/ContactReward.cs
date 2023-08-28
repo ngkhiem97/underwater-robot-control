@@ -13,13 +13,12 @@ public class ContactReward : MonoBehaviour
     {
         if (other.gameObject.CompareTag("contact") && !contactsStored.Contains(other.gameObject.name))
         {
-            // add the contact to the list of contacts
+            Debug.Log("Contact made with " + other.gameObject.name);
             contactsStored.Append(other.gameObject.name);
             if (contactsStored.Length == 2)
             {
                 contactsStored = new string[0];
             }
-            Debug.Log("Contact made with " + other.gameObject.name);
             agent.GetComponent<ArmAgent>().ContactEntered(other);
         }
     }

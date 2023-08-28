@@ -13,7 +13,7 @@ if __name__ == "__main__":
     no_graphics = True if args.headless else False
     env = UnderwaterEnv(file_name=args.file_name, 
                         worker_id=0, 
-                        base_port=None, 
+                        base_port=5005, 
                         seed=args.seed, 
                         no_graphics=no_graphics, 
                         timeout_wait=60, 

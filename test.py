@@ -5,8 +5,6 @@ from env.underwater_env import UnderwaterEnv
 import numpy as np
 from rl_modules.float_log_channel import FloatLogChannel
 
-MAX_TIMESTEPS = 100 # hard coded for now
-
 # process the inputs
 def process_inputs(o, g, o_mean, o_std, g_mean, g_std, args):
     o_clip = np.clip(o, -args.clip_obs, args.clip_obs)
@@ -19,13 +17,13 @@ def process_inputs(o, g, o_mean, o_std, g_mean, g_std, args):
 
 if __name__ == '__main__':
     args = get_args()
-    model_path = args.save_dir + 'UnderwaterEnv' + '/model_default_epoch14_2023-08-10-04-34-17.pt'
+    model_path = args.save_dir + 'RefinedUnderwaterEnv' + '/model_default_2023-08-26-21-19-33.pt'
     o_mean, o_std, g_mean, g_std, actor_model, critic_model = torch.load(model_path, map_location=lambda storage, loc: storage)
-    env = UnderwaterEnv(file_name=None, 
+    env = UnderwaterEnv(file_name=args.file_name, 
                         worker_id=0, 
-                        base_port=None, 
+                        base_port=5004, 
                         seed=args.seed, 
-                        no_graphics=True, 
+                        no_graphics=False, 
                         timeout_wait=60, 
                         log_folder='logs/', 
                         max_steps=args.max_timesteps, 
@@ -45,15 +43,19 @@ if __name__ == '__main__':
     actor_network.load_state_dict(actor_model)
     actor_network.eval()
     for i in range(args.n_test_rollouts):
-        observation = env.reset()
+        observation = env.reset(80, 5)
         obs = observation['observation']
         g = observation['desired_goal']
         for t in range(env_params['max_timesteps']):
+            print('the time step is: ', t)
+            print('the observation is: ', obs)
+            print('the goal is: ', g)
             inputs = process_inputs(obs, g, o_mean, o_std, g_mean, g_std, args)
             with torch.no_grad():
                 pi = actor_network(inputs)
             action = pi.detach().numpy().squeeze()
+            print('the action is: ', action)
             observation_new, reward, is_done, info = env.step(action)
             obs = observation_new['observation']
+            g = observation_new['desired_goal']
         print('the episode is: {}, is success: {}, is done: {}'.format(i, info['is_success'], is_done))
-        env.send_float(0.9)

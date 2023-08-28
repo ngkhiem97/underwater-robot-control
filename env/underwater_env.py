@@ -50,14 +50,15 @@ class UnderwaterEnv:
         self.max_reward = max_reward
         self.nsubsteps = nsubsteps
 
-    def reset(self):
+    def reset(self, nsubsteps=15, times=3):
         print("====================Reset the environment====================")
+        for _ in range(times-1):
+            print("Reset the environment for ", _+1, " times")
+            self.env.reset()
+            self.step(nsubsteps=nsubsteps)
+        print("Reset the environment for ", times, " times")
         self.env.reset()
-        self.step(nsubsteps=5)
-        self.env.reset()
-        self.step(nsubsteps=5)
-        self.env.reset()
-        return self.step(nsubsteps=1)[0]
+        return self.step(nsubsteps=nsubsteps)[0]
     
     def step(self, action=None, nsubsteps=None):
         if action is not None:
@@ -80,7 +81,7 @@ class UnderwaterEnv:
             'is_success': is_done,
         }
         # reset simulation in case of glitch
-        if (self.reward_type == "dense" and reward < -self.max_reward/REWARD_SCALE):
+        if (self.reward_type == "dense" and reward < -0.8): # hard coded for now
             self.env.reset()
         return obs, reward, is_done, info
     
@@ -95,10 +96,10 @@ class UnderwaterEnv:
         decision_steps, terminal_steps = self.env.get_steps(self.behavior_name)
         obs = decision_steps.obs[0]
         achieved_goal = obs[0][0:3] 
-        desired_goal = obs[0][8:11]
+        desired_goal = obs[0][3:6]
         reward = terminal_steps.reward[0] if is_terminal else self._get_single_reward(achieved_goal, desired_goal)
         return {
-            'observation': obs[0][-6:],
+            'observation': obs[0],
             'achieved_goal': achieved_goal,
             'desired_goal': desired_goal,
             'reward': reward

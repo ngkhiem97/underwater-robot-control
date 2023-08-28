@@ -33,8 +33,8 @@ public class ArmAgent : Agent
 
     private ROSConnection Ros;
     private const string RosServiceName = "niryo_moveit";
-    private const float JointAssignmentWait = 0.01f;
-    private const float GripperControlWait = 0.1f;
+    private const float JointAssignmentWait = 0.001f;
+    private const float GripperControlWait = 0.005f;
     private const float armReach = 0.54f;
     private ArticulationBody LeftGripper;
     private ArticulationBody RightGripper;
@@ -49,6 +49,7 @@ public class ArmAgent : Agent
     private bool started = false;
     FloatLogSideChannel floatChannel;
     private float lastZOrientation = 0f;
+    private bool stop = false;
     void Start()
     {
         // configuring the joints
@@ -99,6 +100,7 @@ public class ArmAgent : Agent
 
     public override void OnEpisodeBegin()
     {
+        stop = false;
         target.GetComponent<PosGenerator>().ResetPos();
         for (var joint = 0; joint < k_NumRobotJoints; joint++)
         {
@@ -116,11 +118,7 @@ public class ArmAgent : Agent
     public override void CollectObservations(VectorSensor sensor)
     {
         sensor.AddObservation(GetGripperPosition());
-        sensor.AddObservation(GetGripperOrientation());
-        sensor.AddObservation(GetCurrentGripperState());
-        sensor.AddObservation(GetGripperControlStatus());
         sensor.AddObservation(GetTargetPosition());
-        sensor.AddObservation(GetTargetOrientation());
         sensor.AddObservation(GetDeltaPosition());
         sensor.AddObservation(GetTargetRelativeVelocity());
     }
@@ -132,14 +130,20 @@ public class ArmAgent : Agent
             return;
         }
 
+        if (stop)
+        {
+            return;
+        }
+
         // start grasping
-        if (GetDeltaPosition().magnitude < 0.05f)
+        if (GetDeltaPosition().magnitude < 0.07f)
         {
             Debug.Log("Reached target at: " + GetTargetPosition());
-            Vector3 gripperPosition_ = GetTargetPosition() - new Vector3(0, -0.01f, 0.06f);
+            Vector3 gripperPosition_ = GetTargetPosition() - new Vector3(0.01f, -0.04f, 0.04f);
             Vector3 gripperOrientation_ = ProcessGripperOrientation(gripperPosition_);
             gripperOrientation_.z = lastZOrientation;
             ControlGripper(gripperPosition_, gripperOrientation_, 1);
+            stop = true;
             return;
         }
 
@@ -186,10 +190,11 @@ public class ArmAgent : Agent
 
     private Vector3 ProcessGripperPosition(ActionBuffers vectorAction)
     {
-        float x_new = (vectorAction.ContinuousActions[0]) * 0.05f;
-        float y_new = (vectorAction.ContinuousActions[1]) * 0.05f;
-        float z_new = (vectorAction.ContinuousActions[2]) * 0.05f;
+        float x_new = (vectorAction.ContinuousActions[0]) * 0.025f;
+        float y_new = (vectorAction.ContinuousActions[1]) * 0.025f;
+        float z_new = (vectorAction.ContinuousActions[2]) * 0.025f;
         Vector3 gripperPosition = GetToolLinkPosition() + new Vector3(x_new, y_new, z_new);
+        Debug.Log("Gripper position: " + gripperPosition);
         return gripperPosition;
     }
 
@@ -217,6 +222,7 @@ public class ArmAgent : Agent
         Vector3 gripperOrientation = new Vector3(x_angle,
                                                  Utils.GetYRotationFromXZ(gripperPosition.x, gripperPosition.z),
                                                  z_angle);
+
         return gripperOrientation;
     }
 
@@ -405,6 +411,8 @@ public class ArmAgent : Agent
         {
             gripperControlInAction = false;
             gripperControlForTimeSteps = 0;
+            numContactEntered = 0;
+            EndEpisode();
         }
     }
 
@@ -436,8 +444,8 @@ public class ArmAgent : Agent
             else
             {
                 CloseGripper();
-                numContactEntered = 0;
-                EndEpisode();
+                // numContactEntered = 0;
+                // EndEpisode();
             }
             gripperState = gripperStateCmd;
         }

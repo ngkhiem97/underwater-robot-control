@@ -10,9 +10,9 @@ from mpi_utils.normalizer import normalizer
 from her_modules.her import her_sampler
 from env.underwater_env import UnderwaterEnv
 from torch.utils.tensorboard import SummaryWriter
+import sys
 
 EPSILON = 1e-3
-MULTI_GOALS_MULTIPLIER = 1
 
 """
 ddpg with HER (MPI-version)
@@ -78,7 +78,7 @@ class ddpg_agent:
         self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward)
 
         # create the replay buffer
-        self.buffer = replay_buffer(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions, MULTI_GOALS_MULTIPLIER) # 12 is the hard coded multiplier
+        self.buffer = replay_buffer(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions)
 
         # create the dict for store the model
         if MPI.COMM_WORLD.Get_rank() == 0:
@@ -96,14 +96,16 @@ class ddpg_agent:
 
         """
 
-        # print("========================Start to collect samples...========================")
+        print("========================Start to collect samples...========================")
 
         # start to collect samples
         for epoch in range(self.start_epoch, self.args.n_epochs):
             culmulative_reward = 0
             actor_loss, critic_loss = 0, 0
-            for cycle in range(self.args.n_episodes):
+            cycle = 0
+            while cycle < self.args.n_episodes:
                 mb_obs, mb_ag, mb_g, mb_actions, mb_rewards = [], [], [], [], []
+                reset = False
 
                 for _ in range(self.args.num_rollouts_per_mpi):
             
@@ -111,7 +113,14 @@ class ddpg_agent:
                     ep_obs, ep_ag, ep_g, ep_actions, ep_rewards = [], [], [], [], []
             
                     # reset the environment
-                    observation = self.env.reset()
+                    try:
+                        print("resetting the environment at cycle: ", cycle)
+                        observation = self.env.reset()
+                    except KeyboardInterrupt:
+                        sys.exit()
+                    except:
+                        reset = True
+                        break
                     obs = observation['observation']
                     ag = observation['achieved_goal']
                     g = observation['desired_goal']
@@ -131,9 +140,27 @@ class ddpg_agent:
                         print("action: ", action)
                 
                         # feed the actions into the environment
-                        observation_new, reward, is_done, _ = self.env.step(action)
+                        try:
+                            observation_new, reward, is_done, _ = self.env.step(action)
+                        except KeyboardInterrupt:
+                            sys.exit()
+                        except:
+                            reset = True
+                            break
                         obs_new = observation_new['observation']
                         ag_new = observation_new['achieved_goal']
+                        g_new = observation_new['desired_goal']
+
+                        print("obs_next: ", obs_new)
+                        print("achieved_goal_next: ", ag_new)
+                        print("desired_goal_next: ", g_new)
+                        print("reward: ", reward)
+
+                        # if gripper is not moving, then reset (because of error from the MoveIt)
+                        if np.linalg.norm(obs_new[:3] - obs[:3]) < 0.0001:
+                            print("========= obs_new is nearly identical to obs, reset =========")
+                            reset = True
+                            break
 
                         ep_obs.append(obs.copy())
                         ep_ag.append(ag.copy())
@@ -144,14 +171,7 @@ class ddpg_agent:
                         # re-assign the observation
                         obs = obs_new
                         ag = ag_new
-
-                        print("obs_next: ", obs)
-                        print("achieved_goal_next: ", ag)
-                        print("desired_goal_next: ", g)
-                        print("reward: ", reward)
-
-                        if reward > 0:
-                            reward = 1
+                        g = g_new
 
                         # update the reward
                         culmulative_reward += reward
@@ -163,14 +183,21 @@ class ddpg_agent:
                             ag = observation['achieved_goal']
                             g = observation['desired_goal']
 
+                    if reset:
+                        break
+
                     ep_obs.append(obs.copy())
                     ep_ag.append(ag.copy())
+                    ep_g.append(g.copy())
                     
                     mb_obs.append(ep_obs)
                     mb_ag.append(ep_ag)
                     mb_g.append(ep_g)
                     mb_actions.append(ep_actions)
                     mb_rewards.append(ep_rewards)
+
+                if reset:
+                    continue
         
                 # convert them into arrays
                 mb_obs = np.array(mb_obs)
@@ -178,14 +205,12 @@ class ddpg_agent:
                 mb_g = np.array(mb_g)
                 mb_actions = np.array(mb_actions)
                 mb_rewards = np.array(mb_rewards)
-
-                if (np.all(mb_rewards == 0)):
-                    cycle -= 1
-                    continue
         
                 # store the episodes
                 self.buffer.store_episode([mb_obs, mb_ag, mb_g, mb_actions, mb_rewards])
                 self._update_normalizer([mb_obs, mb_ag, mb_g, mb_actions, mb_rewards])
+
+                self.buffer.write_to_file("data.csv", self.env_params['max_timesteps'])
 
                 total_actor_loss, total_critic_loss = 0, 0
                 for i in range(self.args.n_batches):
@@ -203,6 +228,8 @@ class ddpg_agent:
                 # soft update
                 self._soft_update_target_network(self.actor_target_network, self.actor_network)
                 self._soft_update_target_network(self.critic_target_network, self.critic_network)
+
+                cycle += 1
     
             # start to do the evaluation
             success_rate = self._eval_agent(epoch)
@@ -260,6 +287,7 @@ class ddpg_agent:
         mb_obs, mb_ag, mb_g, mb_actions, mb_rewards = episode_batch
         mb_obs_next = mb_obs[:, 1:, :]
         mb_ag_next = mb_ag[:, 1:, :]
+        mb_g_next = mb_g[:, 1:, :]
 
         # get the number of normalization transitions
         num_transitions = mb_actions.shape[1]
@@ -271,6 +299,7 @@ class ddpg_agent:
                        'actions': mb_actions, 
                        'obs_next': mb_obs_next,
                        'ag_next': mb_ag_next,
+                       'g_next': mb_g_next,
                        'r': mb_rewards
                        }
         transitions = self.her_module.sample_her_transitions(buffer_temp, num_transitions)
@@ -303,18 +332,9 @@ class ddpg_agent:
         transitions = self.buffer.sample(self.args.batch_size)
 
         # pre-process the observation and goal
-        o, o_next, g = transitions['obs'], transitions['obs_next'], transitions['g']
+        o, o_next, g, g_next = transitions['obs'], transitions['obs_next'], transitions['g'], transitions['g_next']
         transitions['obs'], transitions['g'] = self._preproc_og(o, g)
-        transitions['obs_next'], transitions['g_next'] = self._preproc_og(o_next, g)
-
-        print("obs: ", transitions['obs'][0])
-        print("achieved_goal: ", transitions['ag'][0])
-        print("desired_goal: ", transitions['g'][0])
-        print("obs_next: ", transitions['obs_next'][0])
-        print("achieved_goal_next: ", transitions['ag_next'][0])
-        print("desired_goal_next: ", transitions['g_next'][0])
-        print("actions: ", transitions['actions'][0])
-        print("r: ", transitions['r'][0])
+        transitions['obs_next'], transitions['g_next'] = self._preproc_og(o_next, g_next)
 
         # start to do the update
         obs_norm = self.o_norm.normalize(transitions['obs'])
@@ -376,34 +396,66 @@ class ddpg_agent:
 
     # do the evaluation
     def _eval_agent(self, epoch=0):
-        total_success_rate = []
+        print("========================Start to do the evaluation...========================")
+        total_success_rate = 0
         valid_cumulative_reward = 0
         distance = 0
-        for _ in range(self.args.n_test_rollouts):
-            per_success_rate = []
-            observation = self.env.reset()
+        eval_mul = 2
+        test = 0
+        action_value = 0
+        action_n = 0
+        while test < self.args.n_test_rollouts:
+            test += 1
+            reset = False
+            per_success_rate = np.array([])
+            per_valid_cumulative_reward = 0
+            per_distance = 0
+            try:
+                observation = self.env.reset()
+            except KeyboardInterrupt:
+                sys.exit()
+            except:
+                test -= 1
+                continue
             obs = observation['observation']
             g = observation['desired_goal']
-            for _ in range(self.env_params['max_timesteps']):
+            for _ in range(self.env_params['max_timesteps'] * eval_mul):
+                print("obs: ", obs)
+                print("desired_goal: ", g)
                 with torch.no_grad():
                     input_tensor = self._preproc_inputs(obs, g)
                     pi = self.actor_network(input_tensor)
-            
                     # convert the actions
                     actions = pi.detach().cpu().numpy().squeeze()
-                observation_new, reward, _, info = self.env.step(actions)
+                    print("actions: ", actions)
+                    action_value += np.linalg.norm(actions)
+                    action_n += 1
+                try:
+                    observation_new, reward, _, info = self.env.step(actions, nsubsteps=int(self.args.nsubsteps/2))
+                except KeyboardInterrupt:
+                    sys.exit()
+                except:
+                    reset = True
+                    break
                 obs = observation_new['observation']
+                print("obs_next: ", obs)
                 g = observation_new['desired_goal']
                 ag = observation_new['achieved_goal']
-                distance += np.linalg.norm(ag - g)
-                per_success_rate.append(info['is_success'])
-                valid_cumulative_reward += reward
-            total_success_rate.append(per_success_rate)
-        total_success_rate = np.array(total_success_rate)
-        local_success_rate = np.mean(total_success_rate[:, -1])
-        global_success_rate = MPI.COMM_WORLD.allreduce(local_success_rate, op=MPI.SUM)
+                per_distance += np.linalg.norm(ag - g)
+                per_success_rate = np.append(per_success_rate, info['is_success'])
+                per_valid_cumulative_reward += reward
+                if info['is_success']:
+                    break
+            if reset:
+                test -= 1
+                continue
+            total_success_rate += per_success_rate[-1]
+            valid_cumulative_reward += per_valid_cumulative_reward
+            distance += per_distance
+        success_rate = total_success_rate / self.args.n_test_rollouts
         valid_cumulative_reward /= self.args.n_test_rollouts
         distance /= self.args.n_test_rollouts
         self.writer.add_scalar('valid_cumulative_reward', valid_cumulative_reward, epoch)
         self.writer.add_scalar('distance', distance, epoch)
-        return global_success_rate / MPI.COMM_WORLD.Get_size()
+        self.writer.add_scalar('action_value', action_value/action_n, epoch)
+        return success_rate
