@@ -34,7 +34,7 @@ public class ArmAgent : Agent
     private ROSConnection Ros;
     private const string RosServiceName = "niryo_moveit";
     private const float JointAssignmentWait = 0.001f;
-    private const float GripperControlWait = 0.005f;
+    private const float GripperControlWait = 0.002f;
     private const float armReach = 0.54f;
     private ArticulationBody LeftGripper;
     private ArticulationBody RightGripper;
@@ -136,10 +136,11 @@ public class ArmAgent : Agent
         }
 
         // start grasping
-        if (GetDeltaPosition().magnitude < 0.07f)
+        if (GetDeltaPosition().magnitude < 0.04f)
         {
             Debug.Log("Reached target at: " + GetTargetPosition());
-            Vector3 gripperPosition_ = GetTargetPosition() - new Vector3(0.01f, -0.04f, 0.04f);
+            Vector3 offset = new Vector3(0.01f, -0.04f, 0.04f);
+            Vector3 gripperPosition_ = GetTargetPosition() - offset;
             Vector3 gripperOrientation_ = ProcessGripperOrientation(gripperPosition_);
             gripperOrientation_.z = lastZOrientation;
             ControlGripper(gripperPosition_, gripperOrientation_, 1);
@@ -156,12 +157,12 @@ public class ArmAgent : Agent
     public override void Heuristic(in ActionBuffers actionsOut)
     {
         // only set if current position is far from test position
-        if (Vector3.Distance(GetGripperPosition(), testPosition) > 0.02f)
-        {
-            actionsOut.ContinuousActions.Array[0] = testPosition.x;
-            actionsOut.ContinuousActions.Array[1] = testPosition.y;
-            actionsOut.ContinuousActions.Array[2] = testPosition.z;
-        }
+        // if (Vector3.Distance(GetGripperPosition(), testPosition) > 0.02f)
+        // {
+        //     actionsOut.ContinuousActions.Array[0] = testPosition.x;
+        //     actionsOut.ContinuousActions.Array[1] = testPosition.y;
+        //     actionsOut.ContinuousActions.Array[2] = testPosition.z;
+        // }
     }
 
     // Update is called once per frame
@@ -190,9 +191,9 @@ public class ArmAgent : Agent
 
     private Vector3 ProcessGripperPosition(ActionBuffers vectorAction)
     {
-        float x_new = (vectorAction.ContinuousActions[0]) * 0.025f;
-        float y_new = (vectorAction.ContinuousActions[1]) * 0.025f;
-        float z_new = (vectorAction.ContinuousActions[2]) * 0.025f;
+        float x_new = (vectorAction.ContinuousActions[0]) * 0.02f;
+        float y_new = (vectorAction.ContinuousActions[1]) * 0.02f;
+        float z_new = (vectorAction.ContinuousActions[2]) * 0.02f;
         Vector3 gripperPosition = GetToolLinkPosition() + new Vector3(x_new, y_new, z_new);
         Debug.Log("Gripper position: " + gripperPosition);
         return gripperPosition;
@@ -444,8 +445,6 @@ public class ArmAgent : Agent
             else
             {
                 CloseGripper();
-                // numContactEntered = 0;
-                // EndEpisode();
             }
             gripperState = gripperStateCmd;
         }

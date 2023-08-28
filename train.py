@@ -26,9 +26,9 @@ if __name__ == "__main__":
     obs = env.get_obs()
     env_params = {
         'obs': obs['observation'].shape[0],
-        'goal': 3,
+        'goal': obs['desired_goal'].shape[0],
         'action': env.action_space.continuous_size,
-        'action_max': env.action_max, # hard coded for now
+        'action_max': env.action_max,
         'max_timesteps': args.max_timesteps
     }
     ddpg_ag = ddpg_agent(args, env, env_params)

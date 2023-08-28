@@ -17,7 +17,7 @@ def process_inputs(o, g, o_mean, o_std, g_mean, g_std, args):
 
 if __name__ == '__main__':
     args = get_args()
-    model_path = args.save_dir + 'RefinedUnderwaterEnv' + '/model_default_2023-08-26-21-19-33.pt'
+    model_path = args.save_dir + args.load_dir
     o_mean, o_std, g_mean, g_std, actor_model, critic_model = torch.load(model_path, map_location=lambda storage, loc: storage)
     env = UnderwaterEnv(file_name=args.file_name, 
                         worker_id=0, 
@@ -34,16 +34,16 @@ if __name__ == '__main__':
     obs = env.get_obs()
     env_params = {
         'obs': obs['observation'].shape[0],
-        'goal': 3,
-        'action': env.action_space.continuous_size + env.action_space.discrete_size,
-        'action_max': env.action_max, # hard coded for now
+        'goal': obs['desired_goal'].shape[0],
+        'action': env.action_space.continuous_size,
+        'action_max': env.action_max, 
         'max_timesteps': args.max_timesteps
     }
     actor_network = actor(env_params)
     actor_network.load_state_dict(actor_model)
     actor_network.eval()
     for i in range(args.n_test_rollouts):
-        observation = env.reset(80, 5)
+        observation = env.reset(80, 5) # we want to reset multiple times to avoid the bug in the environment, 80 is the substeps, 5 is the number of reset
         obs = observation['observation']
         g = observation['desired_goal']
         for t in range(env_params['max_timesteps']):

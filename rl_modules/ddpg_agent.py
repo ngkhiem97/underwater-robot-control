@@ -210,7 +210,7 @@ class ddpg_agent:
                 self.buffer.store_episode([mb_obs, mb_ag, mb_g, mb_actions, mb_rewards])
                 self._update_normalizer([mb_obs, mb_ag, mb_g, mb_actions, mb_rewards])
 
-                self.buffer.write_to_file("data.csv", self.env_params['max_timesteps'])
+                self.buffer.write_to_file("data/exp.csv", self.env_params['max_timesteps'])
 
                 total_actor_loss, total_critic_loss = 0, 0
                 for i in range(self.args.n_batches):
@@ -360,10 +360,7 @@ class ddpg_agent:
     
             # do the normalization
             # concatenate the stuffs
-            actions_next = self.actor_target_network(inputs_next_norm_tensor)
-            q_next_value = self.critic_target_network(inputs_next_norm_tensor, actions_next)
-            q_next_value = q_next_value.detach()
-            target_q_value = r_tensor + self.args.gamma * q_next_value
+            target_q_value = r_tensor
             target_q_value = target_q_value.detach()
     
             # clip the q value

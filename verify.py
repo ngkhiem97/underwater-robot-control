@@ -4,8 +4,6 @@ import os
 from arguments import get_args
 from env.underwater_env import UnderwaterEnv
 
-MAX_TIMESTEPS = 100 # hard coded for now
-
 print("Start verifying the environment...")
 args = get_args()
 unity_env = UnderwaterEnv(file_name=args.file_name, 
@@ -16,7 +14,7 @@ unity_env = UnderwaterEnv(file_name=args.file_name,
                     timeout_wait=60, 
                     side_channels=[],
                     log_folder='logs/', 
-                    max_steps=MAX_TIMESTEPS, 
+                    max_steps=100, 
                     behavior_name=None,
                     reward_type=args.reward_type,
                     max_reward=args.max_reward,
@@ -31,6 +29,4 @@ while not done:
   obs, reward, done, info = unity_env.step()
   decision_steps, terminal_steps = unity_env.env.get_steps(unity_env.behavior_name)
   print("reward: ", reward, " done: ", done, " info: ", info, "terminal_steps len: ", len(terminal_steps))
-
-
 print("reward: ", reward, " done: ", done, " info: ", info)

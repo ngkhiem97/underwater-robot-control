@@ -2,5 +2,5 @@
 
 Run the training with sparse rewards and headless mode:
 ```
-python3 train.py --num-rollouts-per-mpi 1 --max-timesteps 3 --nsubsteps 40 --n-episodes 100 --n-epochs 1000 --reward-type sparse  --file-name ./simulation/build/UnderwaterArm --headless
+python train.py --nsubsteps 15 --max-timesteps 25 --n-episodes 10 --n-epochs 40 --reward-type dense --batch-size 1024 --n-test-rollouts 10 --file-name ./simulation/build/UnderwaterArm --polyak 0.9
 ```
