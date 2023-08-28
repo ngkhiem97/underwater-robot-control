@@ -3,8 +3,6 @@ from rl_modules.ddpg_agent import ddpg_agent
 from arguments import get_args
 import os
 
-MAX_TIMESTEPS = 3 # hard coded for now
-
 if __name__ == "__main__":
     # take the configuration for the HER
     os.environ['OMP_NUM_THREADS'] = '1'
@@ -19,19 +17,17 @@ if __name__ == "__main__":
                         seed=args.seed, 
                         no_graphics=no_graphics, 
                         timeout_wait=60, 
-                        side_channels=[],
                         log_folder='logs/', 
-                        max_steps=MAX_TIMESTEPS, 
+                        max_steps=args.max_timesteps, 
                         behavior_name=None,
                         reward_type=args.reward_type,
                         max_reward=args.max_reward,
                         nsubsteps=args.nsubsteps)
-    # stop for 5 seconds to wait for the environment to be ready
     obs = env.get_obs()
     env_params = {
         'obs': obs['observation'].shape[0],
         'goal': 3,
-        'action': env.action_space.continuous_size + env.action_space.discrete_size,
+        'action': env.action_space.continuous_size,
         'action_max': env.action_max, # hard coded for now
         'max_timesteps': args.max_timesteps
     }

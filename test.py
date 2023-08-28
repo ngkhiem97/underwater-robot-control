@@ -3,6 +3,7 @@ from rl_modules.models import actor, critic
 from arguments import get_args
 from env.underwater_env import UnderwaterEnv
 import numpy as np
+from rl_modules.float_log_channel import FloatLogChannel
 
 MAX_TIMESTEPS = 100 # hard coded for now
 
@@ -18,7 +19,7 @@ def process_inputs(o, g, o_mean, o_std, g_mean, g_std, args):
 
 if __name__ == '__main__':
     args = get_args()
-    model_path = args.save_dir + 'UnderwaterEnv' + '/model_default_epoch528_2023-07-11-13-07-43.pt'
+    model_path = args.save_dir + 'UnderwaterEnv' + '/model_default_epoch14_2023-08-10-04-34-17.pt'
     o_mean, o_std, g_mean, g_std, actor_model, critic_model = torch.load(model_path, map_location=lambda storage, loc: storage)
     env = UnderwaterEnv(file_name=None, 
                         worker_id=0, 
@@ -26,9 +27,8 @@ if __name__ == '__main__':
                         seed=args.seed, 
                         no_graphics=True, 
                         timeout_wait=60, 
-                        side_channels=[],
                         log_folder='logs/', 
-                        max_steps=MAX_TIMESTEPS, 
+                        max_steps=args.max_timesteps, 
                         behavior_name=None,
                         reward_type=args.reward_type,
                         max_reward=args.max_reward,
@@ -53,6 +53,7 @@ if __name__ == '__main__':
             with torch.no_grad():
                 pi = actor_network(inputs)
             action = pi.detach().numpy().squeeze()
-            observation_new, reward, _, info = env.step(action)
+            observation_new, reward, is_done, info = env.step(action)
             obs = observation_new['observation']
-        print('the episode is: {}, is success: {}'.format(i, info['is_success']))
+        print('the episode is: {}, is success: {}, is done: {}'.format(i, info['is_success'], is_done))
+        env.send_float(0.9)

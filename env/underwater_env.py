@@ -5,6 +5,7 @@ from mlagents_envs.environment import UnityEnvironment
 from scipy.spatial.transform import Rotation as R
 import numpy as np
 import time 
+from rl_modules.float_log_channel import FloatLogChannel
 
 EPSILON = 1e-8
 REWARD_SCALE = 10.0 # hard coded for now
@@ -18,7 +19,6 @@ class UnderwaterEnv:
         seed: int,
         no_graphics: bool,
         timeout_wait: int,
-        side_channels: List[SideChannel],
         log_folder: str,
         max_steps: int,
         reward_type: str,
@@ -27,13 +27,14 @@ class UnderwaterEnv:
         behavior_name: str = None,
     ):
         print("Start the environment with worker_id: ", worker_id, " and base_port: ", base_port)
+        self.float_log = FloatLogChannel()
         self.env = UnityEnvironment(file_name=file_name, 
                                     worker_id=worker_id,
                                     base_port=base_port,
                                     seed=seed,
                                     no_graphics=no_graphics,
                                     timeout_wait=timeout_wait,
-                                    side_channels=side_channels)
+                                    side_channels=[self.float_log])
         self.env.reset()
         if behavior_name is None:
             behavior_name = list(self.env.behavior_specs)[0]
@@ -52,6 +53,10 @@ class UnderwaterEnv:
     def reset(self):
         print("====================Reset the environment====================")
         self.env.reset()
+        self.step(nsubsteps=5)
+        self.env.reset()
+        self.step(nsubsteps=5)
+        self.env.reset()
         return self.step(nsubsteps=1)[0]
     
     def step(self, action=None, nsubsteps=None):
@@ -63,7 +68,7 @@ class UnderwaterEnv:
             if self._is_terminal():
                 break
             self.env.step()
-        get_obs = self.get_obs(self._is_terminal()) # accomodation for HER implementation
+        get_obs = self.get_obs(self._is_terminal())
         obs = {
             'observation': get_obs['observation'],
             'achieved_goal': get_obs['achieved_goal'],
@@ -72,8 +77,9 @@ class UnderwaterEnv:
         reward = get_obs['reward']
         is_done = self._is_terminal()
         info = {
-            'is_success': reward == self.max_reward,
+            'is_success': is_done,
         }
+        # reset simulation in case of glitch
         if (self.reward_type == "dense" and reward < -self.max_reward/REWARD_SCALE):
             self.env.reset()
         return obs, reward, is_done, info
@@ -89,12 +95,11 @@ class UnderwaterEnv:
         decision_steps, terminal_steps = self.env.get_steps(self.behavior_name)
         obs = decision_steps.obs[0]
         achieved_goal = obs[0][0:3] 
-        # achieved_goal = obs[0][8:11] temporarily commented out for now
-        desired_goal = obs[0][8:11] # - np.array([0.0, 0.0, 0.5]) hard coded for now
+        desired_goal = obs[0][8:11]
         reward = terminal_steps.reward[0] if is_terminal else self._get_single_reward(achieved_goal, desired_goal)
         return {
-            'observation': obs[0],
-            'achieved_goal': achieved_goal, # multi goals implementation
+            'observation': obs[0][-6:],
+            'achieved_goal': achieved_goal,
             'desired_goal': desired_goal,
             'reward': reward
         }
@@ -123,52 +128,53 @@ class UnderwaterEnv:
                 assert reward.shape == info.shape
                 reward[info > 0] = self.max_reward
             return reward
+        
+    def send_float(self, value):
+        self.float_log.send_float32(value)
             
     def _process_action(self, action):
-        action[5] = 1.0 if action[5] > 0.0 else 0.0
         action_tuple = ActionTuple(
-            continuous=np.reshape(action[0:self.action_space.continuous_size], (1, self.action_space.continuous_size)),
-            discrete=np.reshape(action[self.action_space.continuous_size:], (1, self.action_space.discrete_size))
+            continuous=np.reshape(action[0:self.action_space.continuous_size], (1, self.action_space.continuous_size))
         )
         return action_tuple
 
-    def _process_achieved_goals(self, achieved_goal):
-        pos = achieved_goal[0:3]
-        rot = R.from_euler('xyz', achieved_goal[3:6], degrees=False)
-        gripper = achieved_goal[6]
+    # def _process_achieved_goals(self, achieved_goal):
+    #     pos = achieved_goal[0:3]
+    #     rot = R.from_euler('xyz', achieved_goal[3:6], degrees=False)
+    #     gripper = achieved_goal[6]
 
-        # generate the desired goals by rotating the rot (in radian) around z-axis
-        achieved_goals = []
-        for i in np.arange(0, 2*np.pi, np.pi/2):
-            r = R.from_euler('z', i, degrees=False)
-            r = r * rot
-            achieved_goals.append(np.concatenate((pos, r.as_euler('xyz', degrees=False), [gripper])))
+    #     # generate the desired goals by rotating the rot (in radian) around z-axis
+    #     achieved_goals = []
+    #     for i in np.arange(0, 2*np.pi, np.pi/2):
+    #         r = R.from_euler('z', i, degrees=False)
+    #         r = r * rot
+    #         achieved_goals.append(np.concatenate((pos, r.as_euler('xyz', degrees=False), [gripper])))
 
-        # generate the desired goals by rotating the rot (in radian) around x-axis 90 degrees and z-axis 4 times
-        r_x_90 = R.from_euler('x', np.pi/2, degrees=False)
-        rot_x_90 = r_x_90 * rot
-        for i in np.arange(0, 2*np.pi, np.pi/2):
-            r = R.from_euler('z', i, degrees=False)
-            r = r * rot_x_90
-            achieved_goals.append(np.concatenate((pos, r.as_euler('xyz', degrees=False), [gripper])))
+    #     # generate the desired goals by rotating the rot (in radian) around x-axis 90 degrees and z-axis 4 times
+    #     r_x_90 = R.from_euler('x', np.pi/2, degrees=False)
+    #     rot_x_90 = r_x_90 * rot
+    #     for i in np.arange(0, 2*np.pi, np.pi/2):
+    #         r = R.from_euler('z', i, degrees=False)
+    #         r = r * rot_x_90
+    #         achieved_goals.append(np.concatenate((pos, r.as_euler('xyz', degrees=False), [gripper])))
 
-        # generate the desired goals by rotating the rot_x_90 (in radian) around y-axis 90 degrees
-        r_y_90 = R.from_euler('y', np.pi/2, degrees=False)
-        rot_y_90_x_90 = r_y_90 * rot_x_90
-        achieved_goals.append(np.concatenate((pos, rot_y_90_x_90.as_euler('xyz', degrees=False), [gripper])))
+    #     # generate the desired goals by rotating the rot_x_90 (in radian) around y-axis 90 degrees
+    #     r_y_90 = R.from_euler('y', np.pi/2, degrees=False)
+    #     rot_y_90_x_90 = r_y_90 * rot_x_90
+    #     achieved_goals.append(np.concatenate((pos, rot_y_90_x_90.as_euler('xyz', degrees=False), [gripper])))
 
-        # generate the desired goals by rotating the rot_x_90 (in radian) around y-axis -90 degrees
-        r_y_neg_90 = R.from_euler('y', -np.pi/2, degrees=False)
-        rot_y_neg_90_x_90 = r_y_neg_90 * rot_x_90
-        achieved_goals.append(np.concatenate((pos, rot_y_neg_90_x_90.as_euler('xyz', degrees=False), [gripper])))
+    #     # generate the desired goals by rotating the rot_x_90 (in radian) around y-axis -90 degrees
+    #     r_y_neg_90 = R.from_euler('y', -np.pi/2, degrees=False)
+    #     rot_y_neg_90_x_90 = r_y_neg_90 * rot_x_90
+    #     achieved_goals.append(np.concatenate((pos, rot_y_neg_90_x_90.as_euler('xyz', degrees=False), [gripper])))
 
-        # generate the desired goals by rotating the rot (in radian) around y-axis 90 degrees
-        rot_y_90 = r_y_90 * rot
-        achieved_goals.append(np.concatenate((pos, rot_y_90.as_euler('xyz', degrees=False), [gripper])))
+    #     # generate the desired goals by rotating the rot (in radian) around y-axis 90 degrees
+    #     rot_y_90 = r_y_90 * rot
+    #     achieved_goals.append(np.concatenate((pos, rot_y_90.as_euler('xyz', degrees=False), [gripper])))
 
-        # generate the desired goals by rotating the rot (in radian) around y-axis -90 degrees
-        rot_y_neg_90 = r_y_neg_90 * rot
-        achieved_goals.append(np.concatenate((pos, rot_y_neg_90.as_euler('xyz', degrees=False), [gripper])))
+    #     # generate the desired goals by rotating the rot (in radian) around y-axis -90 degrees
+    #     rot_y_neg_90 = r_y_neg_90 * rot
+    #     achieved_goals.append(np.concatenate((pos, rot_y_neg_90.as_euler('xyz', degrees=False), [gripper])))
 
-        return achieved_goals
+    #     return achieved_goals
 

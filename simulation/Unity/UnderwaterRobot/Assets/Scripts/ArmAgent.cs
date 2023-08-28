@@ -10,6 +10,7 @@ using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Sensors;
 using System.Linq;
 using UnityEngine.SceneManagement;
+using Unity.MLAgents.SideChannels;
 
 public class ArmAgent : Agent
 {
@@ -44,16 +45,17 @@ public class ArmAgent : Agent
         { "world/base_link/shoulder_link", "/arm_link", "/elbow_link", "/forearm_link", "/wrist_link", "/hand_link" };
     private ArticulationBody[] controlLinks = new ArticulationBody[k_NumRobotJoints];
     private float[] LastContinuousAction = null;
-    private int LastDiscreteAction = -1;
     private int numContactEntered = 0;
     private bool started = false;
+    FloatLogSideChannel floatChannel;
+    private float lastZOrientation = 0f;
     void Start()
     {
         // configuring the joints
         articulationChain = GetComponentsInChildren<ArticulationBody>();
 
         // getting the gripper's contacts
-        string[] contactsNames = {"contact_left_1", "contact_left_2", "contact_right_1", "contact_right_2"};
+        string[] contactsNames = {"contact_left", "contact_right"};
         foreach (string contactName in contactsNames)
         {
             contacts.Add(GameObject.Find(contactName));
@@ -89,6 +91,10 @@ public class ArmAgent : Agent
 
         // Set initial target position
         started = true;
+        
+        // Add string side channel
+        floatChannel = new FloatLogSideChannel();
+        SideChannelManager.RegisterSideChannel(floatChannel);
     }
 
     public override void OnEpisodeBegin()
@@ -116,21 +122,31 @@ public class ArmAgent : Agent
         sensor.AddObservation(GetTargetPosition());
         sensor.AddObservation(GetTargetOrientation());
         sensor.AddObservation(GetDeltaPosition());
-        sensor.AddObservation(GetDeltaOrientation());
         sensor.AddObservation(GetTargetRelativeVelocity());
-        sensor.AddObservation(GetTargetRelativeAngularVelocity());
     }
 
     public override void OnActionReceived(ActionBuffers vectorAction)
     {
-        if (CheckAction(vectorAction))
+        if (CheckAction(vectorAction)) // this is to prevent the (0, 0, 0) action from being sent from the decision requester
         {
             return;
         }
+
+        // start grasping
+        if (GetDeltaPosition().magnitude < 0.05f)
+        {
+            Debug.Log("Reached target at: " + GetTargetPosition());
+            Vector3 gripperPosition_ = GetTargetPosition() - new Vector3(0, -0.01f, 0.06f);
+            Vector3 gripperOrientation_ = ProcessGripperOrientation(gripperPosition_);
+            gripperOrientation_.z = lastZOrientation;
+            ControlGripper(gripperPosition_, gripperOrientation_, 1);
+            return;
+        }
+
+        // if not grasping, continue moving to target
         Vector3 gripperPosition = ProcessGripperPosition(vectorAction);
-        Vector3 gripperOrientation = ProcessGripperOrientation(vectorAction, gripperPosition);
-        int gripperOpen = vectorAction.DiscreteActions[0];
-        ControlGripper(gripperPosition, gripperOrientation, gripperOpen);
+        Vector3 gripperOrientation = ProcessGripperOrientation(gripperPosition);
+        ControlGripper(gripperPosition, gripperOrientation, 0);
     }
 
     public override void Heuristic(in ActionBuffers actionsOut)
@@ -141,9 +157,6 @@ public class ArmAgent : Agent
             actionsOut.ContinuousActions.Array[0] = testPosition.x;
             actionsOut.ContinuousActions.Array[1] = testPosition.y;
             actionsOut.ContinuousActions.Array[2] = testPosition.z;
-            actionsOut.ContinuousActions.Array[3] = testOrientation.x * Mathf.Deg2Rad;
-            actionsOut.ContinuousActions.Array[4] = testOrientation.z * Mathf.Deg2Rad;
-            actionsOut.DiscreteActions.Array[0] = 0;
         }
     }
 
@@ -171,38 +184,39 @@ public class ArmAgent : Agent
         }
     }
 
-    private void ProcessAction(ActionBuffers vectorAction)
-    {
-        if (LastContinuousAction == null)
-        {
-            LastContinuousAction = new float[5];
-        }
-        LastContinuousAction[0] = vectorAction.ContinuousActions[0];
-        LastContinuousAction[1] = vectorAction.ContinuousActions[1];
-        LastContinuousAction[2] = vectorAction.ContinuousActions[2];
-        LastContinuousAction[3] = vectorAction.ContinuousActions[3];
-        LastContinuousAction[4] = vectorAction.ContinuousActions[4];
-        LastDiscreteAction = vectorAction.DiscreteActions[0];
-    }
-
     private Vector3 ProcessGripperPosition(ActionBuffers vectorAction)
     {
         float x_new = (vectorAction.ContinuousActions[0]) * 0.05f;
         float y_new = (vectorAction.ContinuousActions[1]) * 0.05f;
         float z_new = (vectorAction.ContinuousActions[2]) * 0.05f;
-        Vector3 change = new Vector3(x_new, y_new, z_new);
         Vector3 gripperPosition = GetToolLinkPosition() + new Vector3(x_new, y_new, z_new);
         return gripperPosition;
     }
 
-    private Vector3 ProcessGripperOrientation(ActionBuffers vectorAction, Vector3 gripperPosition)
+    private Vector3 ProcessGripperOrientation(Vector3 gripperPosition)
     {
-        float x_orientation = vectorAction.ContinuousActions[3] * Mathf.PI * 0.005f;
-        float z_orientation = vectorAction.ContinuousActions[4] * Mathf.PI * 0.005f;
-        Vector3 wlOrientation = GetGripperBaseOrientation();
-        Vector3 gripperOrientation = new Vector3(wlOrientation.x + x_orientation,
+        Transform shoulderLink = this.transform.Find("world/base_link/shoulder_link");
+        Vector3 objectPosition = GetTargetPosition();
+        Vector3 relativePosition =  shoulderLink.InverseTransformPoint(gripperPosition) -  shoulderLink.InverseTransformPoint(objectPosition);
+        float x_angle = Mathf.Atan2(relativePosition.y, relativePosition.z);
+        if (x_angle > 0)
+        {
+            x_angle = Mathf.PI - x_angle;
+        } else
+        {
+            x_angle = - Mathf.PI - x_angle;
+        }
+        float z_angle = Mathf.Atan2(relativePosition.y, relativePosition.x);
+        if (z_angle > 0)
+        {
+            z_angle = z_angle - Mathf.PI / 2;
+        } else
+        {
+            z_angle = z_angle + Mathf.PI / 2;
+        }
+        Vector3 gripperOrientation = new Vector3(x_angle,
                                                  Utils.GetYRotationFromXZ(gripperPosition.x, gripperPosition.z),
-                                                 wlOrientation.z + z_orientation);
+                                                 z_angle);
         return gripperOrientation;
     }
 
@@ -210,9 +224,7 @@ public class ArmAgent : Agent
     {
         if (vectorAction.ContinuousActions[0] < 0.001f &&
             vectorAction.ContinuousActions[1] < 0.001f &&
-            vectorAction.ContinuousActions[2] < 0.001f &&
-            vectorAction.ContinuousActions[3] < 0.001f &&
-            vectorAction.ContinuousActions[4] < 0.001f)
+            vectorAction.ContinuousActions[2] < 0.001f)
         {
             return true;
         }
@@ -227,6 +239,7 @@ public class ArmAgent : Agent
         }
         PublishJoints(position, orientation_rad);
         gripperStateCmd = open;
+        lastZOrientation = orientation_rad.z;
     }
 
     private void ConfigJoints()
@@ -423,6 +436,8 @@ public class ArmAgent : Agent
             else
             {
                 CloseGripper();
+                numContactEntered = 0;
+                EndEpisode();
             }
             gripperState = gripperStateCmd;
         }
@@ -458,15 +473,9 @@ public class ArmAgent : Agent
     internal void ContactEntered(Collider other)
     {
         numContactEntered++;
-        if (gripperState == 1)
+        if (numContactEntered == 2)
         {
-            SetReward(numContactEntered*0.25f);
-            numContactEntered = 0;
-            EndEpisode();
-        }
-        if (numContactEntered == 4)
-        {
-            SetReward(1f);
+            Debug.Log("======================== Contact entered ========================");
             numContactEntered = 0;
             EndEpisode();
         }

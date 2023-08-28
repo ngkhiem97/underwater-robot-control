@@ -96,7 +96,7 @@ class ddpg_agent:
 
         """
 
-        print("========================Start to collect samples...========================")
+        # print("========================Start to collect samples...========================")
 
         # start to collect samples
         for epoch in range(self.start_epoch, self.args.n_epochs):
@@ -119,7 +119,7 @@ class ddpg_agent:
                     # start to collect samples
                     for t in range(self.env_params['max_timesteps']):
 
-                        print("obs: ", obs[0:3])
+                        print("obs: ", obs)
                         print("achieved_goal: ", ag)
                         print("desired_goal: ", g)
 
@@ -134,13 +134,6 @@ class ddpg_agent:
                         observation_new, reward, is_done, _ = self.env.step(action)
                         obs_new = observation_new['observation']
                         ag_new = observation_new['achieved_goal']
-                
-                        # append rollouts, multi goals implementation
-                        # for ag in ags:
-                        #     ep_obs.append(obs.copy())
-                        #     ep_ag.append(ag.copy())
-                        #     ep_g.append(g.copy())
-                        #     ep_actions.append(action.copy())
 
                         ep_obs.append(obs.copy())
                         ep_ag.append(ag.copy())
@@ -151,9 +144,8 @@ class ddpg_agent:
                         # re-assign the observation
                         obs = obs_new
                         ag = ag_new
-                        g = observation_new['desired_goal'] # goal might change because of collisions
 
-                        print("obs_next: ", obs[0:3])
+                        print("obs_next: ", obs)
                         print("achieved_goal_next: ", ag)
                         print("desired_goal_next: ", g)
                         print("reward: ", reward)
@@ -163,18 +155,13 @@ class ddpg_agent:
 
                         # update the reward
                         culmulative_reward += reward
-                        print(f"epoch: {epoch}, cycle: {cycle}, t: {t}", "ep_obs: ", len(ep_obs), "ep_ag: ", len(ep_ag), "ep_g: ", len(ep_g), "ep_actions: ", len(ep_actions), "reward: ")
+                        # print(f"epoch: {epoch}, cycle: {cycle}, t: {t}", "ep_obs: ", len(ep_obs), "ep_ag: ", len(ep_ag), "ep_g: ", len(ep_g), "ep_actions: ", len(ep_actions), "reward: ")
 
                         if is_done:
                             observation = self.env.reset()
                             obs = observation['observation']
                             ag = observation['achieved_goal']
                             g = observation['desired_goal']
-
-                    # multi goals implementation
-                    # for ag in ags:
-                    #     ep_obs.append(obs.copy())
-                    #     ep_ag.append(ag.copy())
 
                     ep_obs.append(obs.copy())
                     ep_ag.append(ag.copy())
@@ -225,6 +212,8 @@ class ddpg_agent:
             self.writer.add_scalar('critic_loss', critic_loss, epoch)
             self.writer.add_scalar('culmulative_reward', culmulative_reward, epoch)
             self.writer.add_scalar('success_rate', success_rate, epoch)
+
+            self.env.send_float(success_rate)
 
             if MPI.COMM_WORLD.Get_rank() == 0:
                 print('[{}] epoch is: {}, eval success rate is: {:.3f}'.format(datetime.now(), epoch, success_rate))
@@ -318,10 +307,10 @@ class ddpg_agent:
         transitions['obs'], transitions['g'] = self._preproc_og(o, g)
         transitions['obs_next'], transitions['g_next'] = self._preproc_og(o_next, g)
 
-        print("obs: ", transitions['obs'][0][0:3])
+        print("obs: ", transitions['obs'][0])
         print("achieved_goal: ", transitions['ag'][0])
         print("desired_goal: ", transitions['g'][0])
-        print("obs_next: ", transitions['obs_next'][0][0:3])
+        print("obs_next: ", transitions['obs_next'][0])
         print("achieved_goal_next: ", transitions['ag_next'][0])
         print("desired_goal_next: ", transitions['g_next'][0])
         print("actions: ", transitions['actions'][0])
@@ -382,7 +371,7 @@ class ddpg_agent:
         sync_grads(self.critic_network)
         self.critic_optim.step()
 
-        print('actor_loss: ', actor_loss.item(), 'critic_loss: ', critic_loss.item(), end='\r')
+        # print('actor_loss: ', actor_loss.item(), 'critic_loss: ', critic_loss.item(), end='\r')
         return actor_loss.item(), critic_loss.item()
 
     # do the evaluation
