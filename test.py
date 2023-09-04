@@ -1,11 +1,10 @@
 import torch
-from rl_modules.models import actor, critic
+from rl_modules.models import actor
 from arguments import get_args
 from env.underwater_env import UnderwaterEnv
 import numpy as np
-from rl_modules.float_log_channel import FloatLogChannel
+import time
 
-# process the inputs
 def process_inputs(o, g, o_mean, o_std, g_mean, g_std, args):
     o_clip = np.clip(o, -args.clip_obs, args.clip_obs)
     g_clip = np.clip(g, -args.clip_obs, args.clip_obs)
@@ -14,6 +13,11 @@ def process_inputs(o, g, o_mean, o_std, g_mean, g_std, args):
     inputs = np.concatenate([o_norm, g_norm])
     inputs = torch.tensor(inputs, dtype=torch.float32)
     return inputs
+
+def scale_action(action, action_max):
+    max_value = np.max(np.abs(action))
+    action = action / max_value * action_max
+    return action
 
 if __name__ == '__main__':
     args = get_args()
@@ -42,20 +46,36 @@ if __name__ == '__main__':
     actor_network = actor(env_params)
     actor_network.load_state_dict(actor_model)
     actor_network.eval()
+    data = {
+        'run_id': [],
+        'is_success': [],
+        'distances': [],
+        'runtime': [],
+    }
     for i in range(args.n_test_rollouts):
-        observation = env.reset(80, 5) # we want to reset multiple times to avoid the bug in the environment, 80 is the substeps, 5 is the number of resets
+        data['run_id'].append(i)
+        data['distances'].append([])
+        start_time = time.time()
+        observation = env.reset()
         obs = observation['observation']
         g = observation['desired_goal']
         for t in range(env_params['max_timesteps']):
-            print('the time step is: ', t)
-            print('the observation is: ', obs)
-            print('the goal is: ', g)
-            inputs = process_inputs(obs, g, o_mean, o_std, g_mean, g_std, args)
-            with torch.no_grad():
-                pi = actor_network(inputs)
-            action = pi.detach().numpy().squeeze()
-            print('the action is: ', action)
+            delta_pos = obs[6:9]
+            distance = np.linalg.norm(delta_pos)
+            data['distances'][i].append(distance)
+            # inputs = process_inputs(obs, g, o_mean, o_std, g_mean, g_std, args)
+            # with torch.no_grad():
+            #     pi = actor_network(inputs)
+            # action = pi.detach().numpy().squeeze()
+            action = scale_action(obs[6:9], env.action_max)
             observation_new, reward, is_done, info = env.step(action)
             obs = observation_new['observation']
             g = observation_new['desired_goal']
+        data['is_success'].append(info['is_success'])
+        end_time = time.time()
+        data['runtime'].append(end_time - start_time)
         print('the episode is: {}, is success: {}, is done: {}'.format(i, info['is_success'], is_done))
+    # save the data to a csv file
+    import pandas as pd
+    df = pd.DataFrame(data)
+    df.to_csv('data/test_results.csv', index=False) # you can change the name of the csv file later
