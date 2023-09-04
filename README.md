@@ -28,5 +28,5 @@ python train.py --nsubsteps 15 --max-timesteps 25 --n-episodes 10 --n-epochs 40 
 
 On command line, run:
 ```
-python test.py  --nsubsteps 15 --max-timesteps 50 --reward-type dense --file-name ./simulation/build/UnderwaterArm --load-dir RefinedUnderwaterEnv/model_default_2023-08-26-21-19-33.pt
+python test.py  --nsubsteps 15 --max-timesteps 50 --reward-type dense --file-name ./simulation/build/UnderwaterArm --load-dir RefinedUnderwaterEnv/model_default_2023-08-26-21-19-33.pt 
 ```

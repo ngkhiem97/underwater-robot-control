@@ -33,8 +33,8 @@ public class ArmAgent : Agent
 
     private ROSConnection Ros;
     private const string RosServiceName = "niryo_moveit";
-    private const float JointAssignmentWait = 0.001f;
-    private const float GripperControlWait = 0.005f;
+    private const float JointAssignmentWait = 0.0001f;
+    private const float GripperControlWait = 0.05f;
     private const float armReach = 0.54f;
     private ArticulationBody LeftGripper;
     private ArticulationBody RightGripper;
@@ -136,11 +136,10 @@ public class ArmAgent : Agent
         }
 
         // start grasping
-        if (GetDeltaPosition().magnitude < 0.02f)
+        if (GetDeltaPosition().magnitude < 0.03f && !gripperControlInAction)
         {
-            Debug.Log("Reached target at: " + GetTargetPosition());
-            Vector3 offset = new Vector3(0.01f, -0.04f, 0.04f);
-            Vector3 gripperPosition_ = GetTargetPosition() - offset;
+            Vector3 gripperPosition_ = GetTargetPosition() - GetGripperToolLinkVector();
+            Debug.Log("Reached target at: " + gripperPosition_);
             Vector3 gripperOrientation_ = ProcessGripperOrientation(gripperPosition_);
             gripperOrientation_.z = lastZOrientation;
             ControlGripper(gripperPosition_, gripperOrientation_, 1);
@@ -157,12 +156,12 @@ public class ArmAgent : Agent
     public override void Heuristic(in ActionBuffers actionsOut)
     {
         // only set if current position is far from test position
-        // if (Vector3.Distance(GetGripperPosition(), testPosition) > 0.02f)
-        // {
-        //     actionsOut.ContinuousActions.Array[0] = testPosition.x;
-        //     actionsOut.ContinuousActions.Array[1] = testPosition.y;
-        //     actionsOut.ContinuousActions.Array[2] = testPosition.z;
-        // }
+        if (Vector3.Distance(GetGripperPosition(), testPosition) > 0.02f)
+        {
+            actionsOut.ContinuousActions.Array[0] = (testPosition.x - GetToolLinkPosition().x)/0.02f;
+            actionsOut.ContinuousActions.Array[1] = (testPosition.y - GetToolLinkPosition().y)/0.02f;
+            actionsOut.ContinuousActions.Array[2] = (testPosition.z - GetToolLinkPosition().z)/0.02f;
+        }
     }
 
     // Update is called once per frame
@@ -203,7 +202,7 @@ public class ArmAgent : Agent
     {
         Transform shoulderLink = this.transform.Find("world/base_link/shoulder_link");
         Vector3 objectPosition = GetTargetPosition();
-        Vector3 relativePosition =  shoulderLink.InverseTransformPoint(gripperPosition) -  shoulderLink.InverseTransformPoint(objectPosition);
+        Vector3 relativePosition =  shoulderLink.InverseTransformPoint(gripperPosition) - shoulderLink.InverseTransformPoint(objectPosition);
         float x_angle = Mathf.Atan2(relativePosition.y, relativePosition.z);
         if (x_angle > 0)
         {
@@ -374,6 +373,12 @@ public class ArmAgent : Agent
         return Utils.ConvertRotation(this.transform.Find("world/base_link/shoulder_link/arm_link/elbow_link/forearm_link/wrist_link/hand_link/tool_link").rotation.eulerAngles);
     }
 
+    private Vector3 GetGripperToolLinkVector()
+    {
+        Vector3 offset = new Vector3(0.0f, 0.0f, 0.008f);
+        return GetGripperPosition() - GetToolLinkPosition() + offset;
+    }
+
     private NiryoMoveitJointsMsg CurrentJointConfig()
     {
         var joints = new NiryoMoveitJointsMsg();
@@ -398,7 +403,6 @@ public class ArmAgent : Agent
                                            orientation_rad.y * Mathf.Rad2Deg, 
                                            orientation_rad.z * Mathf.Rad2Deg).To<FLU>()
         };
-        
         Ros.SendServiceMessage<PointToPointServiceResponse>(RosServiceName, request, TrajectoryResponse);
     }
 
@@ -445,8 +449,6 @@ public class ArmAgent : Agent
             else
             {
                 CloseGripper();
-                // numContactEntered = 0;
-                // EndEpisode();
             }
             gripperState = gripperStateCmd;
         }
@@ -472,8 +474,8 @@ public class ArmAgent : Agent
         var leftDrive = LeftGripper.xDrive;
         var rightDrive = RightGripper.xDrive;
 
-        leftDrive.target = 0.01f;
-        rightDrive.target = -0.01f;
+        leftDrive.target = 0.0257436f;
+        rightDrive.target = -0.0257436f;
 
         LeftGripper.xDrive = leftDrive;
         RightGripper.xDrive = rightDrive;

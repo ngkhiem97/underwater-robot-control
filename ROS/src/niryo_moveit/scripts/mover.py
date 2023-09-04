@@ -25,7 +25,7 @@ from niryo_moveit.srv import PointToPointService, PointToPointServiceRequest, Po
 
 group_name = "arm"
 move_group = moveit_commander.MoveGroupCommander(group_name)
-move_group.set_planning_time(0.05)
+move_group.set_planning_time(0.04)
 
 joint_names = ['joint_1', 'joint_2', 'joint_3', 'joint_4', 'joint_5', 'joint_6']
 

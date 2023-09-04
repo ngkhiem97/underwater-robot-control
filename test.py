@@ -43,7 +43,7 @@ if __name__ == '__main__':
     actor_network.load_state_dict(actor_model)
     actor_network.eval()
     for i in range(args.n_test_rollouts):
-        observation = env.reset(80, 5) # we want to reset multiple times to avoid the bug in the environment, 80 is the substeps, 5 is the number of reset
+        observation = env.reset(80, 5) # we want to reset multiple times to avoid the bug in the environment, 80 is the substeps, 5 is the number of resets
         obs = observation['observation']
         g = observation['desired_goal']
         for t in range(env_params['max_timesteps']):
